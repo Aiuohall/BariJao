@@ -1,0 +1,1276 @@
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './AuthContext';
+import { TranslationProvider, useTranslation } from './TranslationContext';
+import { BANGLADESH_DISTRICTS } from './constants';
+import React, { useState, useEffect } from 'react';
+import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// --- Components ---
+
+const Navbar = () => {
+  const { user, logout } = useAuth();
+  const { lang, setLang, t } = useTranslation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  return (
+    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16 items-center">
+          <div className="flex items-center gap-2">
+            <Link to="/" className="text-2xl font-bold text-emerald-600 flex items-center gap-2">
+              <TicketIcon className="w-8 h-8" />
+              <span className="hidden sm:inline">{t.appName}</span>
+            </Link>
+          </div>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-6">
+            <button 
+              onClick={() => setLang(lang === 'en' ? 'bn' : 'en')}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900"
+            >
+              {lang === 'en' ? 'বাংলা' : 'English'}
+            </button>
+            <Link to="/" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.home}</Link>
+            <Link to="/" className="text-sm font-medium text-emerald-600 font-bold hover:text-emerald-700">Buy Tickets</Link>
+            {user ? (
+              <>
+                <Link to="/sell" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.sell}</Link>
+                <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.dashboard}</Link>
+                {user.role === 'admin' && (
+                  <Link to="/admin" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-1">
+                    <Shield className="w-4 h-4" /> {t.admin}
+                  </Link>
+                )}
+                <button onClick={logout} className="text-sm font-medium text-red-500 hover:text-red-600 flex items-center gap-1">
+                  <LogOut className="w-4 h-4" /> {t.logout}
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-4">
+                <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-emerald-600">
+                  {t.login}
+                </Link>
+                <Link to="/register" className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors">
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Menu Toggle */}
+          <div className="md:hidden flex items-center gap-4">
+            <button onClick={() => setLang(lang === 'en' ? 'bn' : 'en')} className="text-sm font-medium text-gray-500">
+              {lang === 'en' ? 'বাংলা' : 'English'}
+            </button>
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-gray-600">
+              {isMenuOpen ? <X /> : <Menu />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Nav */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-white border-t border-gray-100 overflow-hidden"
+          >
+            <div className="px-4 pt-2 pb-6 space-y-2">
+              <Link to="/" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.home}</Link>
+              <Link to="/" className="block px-3 py-2 rounded-md text-base font-bold text-emerald-600 hover:bg-emerald-50" onClick={() => setIsMenuOpen(false)}>Buy Tickets</Link>
+              {user ? (
+                <>
+                  <Link to="/sell" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.sell}</Link>
+                  <Link to="/dashboard" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.dashboard}</Link>
+                  {user.role === 'admin' && (
+                    <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.admin}</Link>
+                  )}
+                  <button onClick={() => { logout(); setIsMenuOpen(false); }} className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-500 hover:bg-gray-50">{t.logout}</button>
+                </>
+              ) : (
+                <Link to="/login" className="block px-3 py-2 rounded-md text-base font-medium text-emerald-600" onClick={() => setIsMenuOpen(false)}>{t.login}</Link>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+};
+
+// --- Pages ---
+
+const SellTicket = () => {
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    transport_type: 'bus',
+    operator_name: '',
+    from_location: '',
+    to_location: '',
+    journey_date: '',
+    seat_number: '',
+    original_price: '',
+    asking_price: '',
+    ticket_purchase_date: '',
+  });
+  const [image, setImage] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [suggestions, setSuggestions] = useState({ from: [], to: [] });
+
+  const handleDistrictSearch = (field: 'from' | 'to', val: string) => {
+    setFormData({ ...formData, [field === 'from' ? 'from_location' : 'to_location']: val });
+    if (val.length > 0) {
+      const query = val.toLowerCase();
+      const filtered = BANGLADESH_DISTRICTS.filter(d => d.toLowerCase().includes(query));
+      setSuggestions({ ...suggestions, [field]: filtered.slice(0, 5) });
+    } else {
+      setSuggestions({ ...suggestions, [field]: [] });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const data = new FormData();
+      Object.entries(formData).forEach(([key, val]) => data.append(key, val as string));
+      if (image) data.append('ticket_image', image);
+
+      const res = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: data,
+      });
+      
+      const text = await res.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Server returned an invalid response (Status: ${res.status})`);
+      }
+      
+      if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
+      navigate('/dashboard');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) return <Navigate to="/login" />;
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-12">
+      <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">List Your Ticket</h1>
+        <p className="text-gray-500 mb-8">Fill in the details to list your ticket for sale.</p>
+
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-6">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Transport Type</label>
+              <select 
+                value={formData.transport_type}
+                onChange={(e) => setFormData({...formData, transport_type: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              >
+                <option value="bus">Bus</option>
+                <option value="train">Train</option>
+                <option value="launch">Launch</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Operator Name</label>
+              <input 
+                type="text" required
+                value={formData.operator_name}
+                onChange={(e) => setFormData({...formData, operator_name: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="e.g. Hanif, Green Line"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="relative">
+              <label className="block text-sm font-bold text-gray-700 mb-1">From</label>
+              <input 
+                type="text" required
+                value={formData.from_location}
+                onChange={(e) => handleDistrictSearch('from', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="Starting Point"
+              />
+              {suggestions.from.length > 0 && (
+                <div className="absolute top-full left-0 w-full bg-white border border-gray-100 rounded-xl shadow-2xl mt-2 z-30 overflow-hidden">
+                  {suggestions.from.map(d => (
+                    <button 
+                      key={d} type="button"
+                      onClick={() => { setFormData({...formData, from_location: d}); setSuggestions({...suggestions, from: []}); }}
+                      className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-gray-700 text-sm font-medium transition-colors"
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <label className="block text-sm font-bold text-gray-700 mb-1">To</label>
+              <input 
+                type="text" required
+                value={formData.to_location}
+                onChange={(e) => handleDistrictSearch('to', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="Destination"
+              />
+              {suggestions.to.length > 0 && (
+                <div className="absolute top-full left-0 w-full bg-white border border-gray-100 rounded-xl shadow-2xl mt-2 z-30 overflow-hidden">
+                  {suggestions.to.map(d => (
+                    <button 
+                      key={d} type="button"
+                      onClick={() => { setFormData({...formData, to_location: d}); setSuggestions({...suggestions, to: []}); }}
+                      className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-gray-700 text-sm font-medium transition-colors"
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Journey Date</label>
+              <input 
+                type="date" required
+                value={formData.journey_date}
+                onChange={(e) => setFormData({...formData, journey_date: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Seat Number</label>
+              <input 
+                type="text" required
+                value={formData.seat_number}
+                onChange={(e) => setFormData({...formData, seat_number: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="e.g. A1, B2"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Original Price (৳)</label>
+              <input 
+                type="number" required
+                value={formData.original_price}
+                onChange={(e) => setFormData({...formData, original_price: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Asking Price (৳)</label>
+              <input 
+                type="number" required
+                value={formData.asking_price}
+                onChange={(e) => setFormData({...formData, asking_price: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Ticket Purchase Date</label>
+            <input 
+              type="date" required
+              value={formData.ticket_purchase_date}
+              onChange={(e) => setFormData({...formData, ticket_purchase_date: e.target.value})}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Ticket Image (Max 2MB, JPG/PNG)</label>
+            <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:border-emerald-500 transition-colors cursor-pointer relative">
+              <input 
+                type="file" required
+                accept="image/jpeg,image/png"
+                onChange={(e) => setImage(e.target.files?.[0] || null)}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <PlusCircle className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">{image ? image.name : 'Click or drag to upload ticket image'}</p>
+            </div>
+          </div>
+
+          <button 
+            disabled={loading}
+            className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Posting...' : 'Post Listing'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const Home = () => {
+  const { t } = useTranslation();
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState({ from: '', to: '', date: '', type: '' });
+  const [suggestions, setSuggestions] = useState({ from: [], to: [] });
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const fetchTickets = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams(search);
+      const res = await fetch(`/api/tickets?${params}`);
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Server returned an invalid response (Status: ${res.status})`);
+      }
+      
+      if (!res.ok) throw new Error(data.error || `Failed to fetch tickets (Status: ${res.status})`);
+      setTickets(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDistrictSearch = (field: 'from' | 'to', val: string) => {
+    setSearch({ ...search, [field]: val });
+    if (val.length > 0) {
+      const query = val.toLowerCase();
+      const filtered = BANGLADESH_DISTRICTS.filter(d => d.toLowerCase().includes(query));
+      setSuggestions({ ...suggestions, [field]: filtered.slice(0, 5) });
+    } else {
+      setSuggestions({ ...suggestions, [field]: [] });
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-12">
+      {/* Hero Section */}
+      <div className="text-center mb-16">
+        <h1 className="text-5xl font-extrabold text-gray-900 mb-6 tracking-tight">
+          {t.appName}: <span className="text-emerald-600">Eid Ticket Exchange</span>
+        </h1>
+        <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-12">
+          {t.searchSub}
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
+          <Link 
+            to="/sell" 
+            className="w-full sm:w-64 bg-emerald-600 text-white py-6 rounded-2xl text-xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex flex-col items-center gap-2"
+          >
+            <PlusCircle className="w-8 h-8" />
+            {t.sell}
+          </Link>
+          <button 
+            onClick={() => document.getElementById('search-form')?.scrollIntoView({ behavior: 'smooth' })}
+            className="w-full sm:w-64 bg-gray-900 text-white py-6 rounded-2xl text-xl font-bold hover:bg-gray-800 transition-all shadow-xl shadow-gray-900/20 flex flex-col items-center gap-2"
+          >
+            <Search className="w-8 h-8" />
+            Buy Ticket
+          </button>
+        </div>
+
+        {/* Search Form */}
+        <div id="search-form" className="bg-white rounded-3xl p-8 shadow-2xl border border-gray-100 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="relative text-left">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">{t.from}</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={search.from}
+                  onChange={(e) => handleDistrictSearch('from', e.target.value)}
+                  placeholder="Starting Point"
+                  className="w-full bg-gray-50 px-4 py-4 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 border border-transparent focus:border-emerald-500 transition-all"
+                />
+                {suggestions.from.length > 0 && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-100 rounded-xl shadow-2xl mt-2 z-30 overflow-hidden">
+                    {suggestions.from.map(d => (
+                      <button 
+                        key={d} 
+                        onClick={() => { setSearch({...search, from: d}); setSuggestions({...suggestions, from: []}); }}
+                        className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-gray-700 text-sm font-medium transition-colors"
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="relative text-left">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">{t.to}</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={search.to}
+                  onChange={(e) => handleDistrictSearch('to', e.target.value)}
+                  placeholder="Destination"
+                  className="w-full bg-gray-50 px-4 py-4 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 border border-transparent focus:border-emerald-500 transition-all"
+                />
+                {suggestions.to.length > 0 && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-100 rounded-xl shadow-2xl mt-2 z-30 overflow-hidden">
+                    {suggestions.to.map(d => (
+                      <button 
+                        key={d} 
+                        onClick={() => { setSearch({...search, to: d}); setSuggestions({...suggestions, to: []}); }}
+                        className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-gray-700 text-sm font-medium transition-colors"
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="text-left">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">{t.date}</label>
+              <input 
+                type="date" 
+                value={search.date}
+                onChange={(e) => setSearch({...search, date: e.target.value})}
+                className="w-full bg-gray-50 px-4 py-4 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 border border-transparent focus:border-emerald-500 transition-all"
+              />
+            </div>
+          </div>
+          <button 
+            onClick={fetchTickets}
+            className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+          >
+            <Search className="w-6 h-6" /> {t.searchBtn}
+          </button>
+        </div>
+      </div>
+
+      {/* Ticket Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {loading ? (
+          Array(6).fill(0).map((_, i) => (
+            <div key={i} className="bg-white border border-gray-100 rounded-3xl p-6 h-80 animate-pulse">
+              <div className="w-20 h-6 bg-gray-100 rounded-md mb-4"></div>
+              <div className="w-full h-8 bg-gray-100 rounded-md mb-4"></div>
+              <div className="w-3/4 h-4 bg-gray-100 rounded-md mb-8"></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="h-16 bg-gray-100 rounded-xl"></div>
+                <div className="h-16 bg-gray-100 rounded-xl"></div>
+              </div>
+            </div>
+          ))
+        ) : tickets.length > 0 ? (
+          tickets.map((ticket: any) => (
+            <motion.div 
+              key={ticket.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white border border-gray-100 rounded-3xl p-6 hover:shadow-2xl transition-all group"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
+                  {ticket.transport_type}
+                </span>
+                <div className="text-right">
+                  <p className="text-2xl font-black text-gray-900">৳{ticket.asking_price}</p>
+                  <p className="text-xs text-gray-400 line-through">৳{ticket.original_price}</p>
+                </div>
+              </div>
+              
+              <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors">{ticket.operator_name}</h3>
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+                <span className="font-semibold text-gray-700">{ticket.from_location}</span>
+                <span className="text-emerald-400">→</span>
+                <span className="font-semibold text-gray-700">{ticket.to_location}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{t.date}</p>
+                  <p className="text-sm font-bold text-gray-700">{new Date(ticket.journey_date).toLocaleDateString()}</p>
+                </div>
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{t.seat}</p>
+                  <p className="text-sm font-bold text-gray-700">Hidden</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-black text-sm">
+                    {ticket.seller?.name[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">{ticket.seller?.name}</p>
+                    <div className="flex items-center gap-1">
+                      <Shield className="w-3 h-3 text-emerald-500" />
+                      <p className="text-[10px] text-gray-400 font-medium">Rating: {ticket.seller?.rating}/5</p>
+                    </div>
+                  </div>
+                </div>
+                <Link 
+                  to={`/ticket/${ticket.id}`}
+                  className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/10"
+                >
+                  {t.viewDetails}
+                </Link>
+              </div>
+            </motion.div>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-32">
+            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Search className="w-12 h-12 text-gray-200" />
+            </div>
+            <p className="text-gray-500 font-bold text-xl mb-2">{t.noTickets}</p>
+            <p className="text-gray-400">Try adjusting your search filters.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const TicketDetails = () => {
+  const { id } = useParams();
+  const { user, token } = useAuth();
+  const [ticket, setTicket] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTicket();
+  }, [id]);
+
+  useEffect(() => {
+    if (user && ticket) {
+      fetchMessages();
+      const interval = setInterval(fetchMessages, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [user, ticket]);
+
+  const fetchTicket = async () => {
+    try {
+      const res = await fetch(`/api/tickets/${id}`);
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Server returned an invalid response (Status: ${res.status})`);
+      }
+      
+      if (!res.ok) throw new Error(data.error || `Ticket not found (Status: ${res.status})`);
+      setTicket(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await fetch(`/api/messages/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        return;
+      }
+      setMessages(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+
+    const res = await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        ticket_id: id,
+        receiver_id: ticket.seller_id,
+        message: newMessage
+      })
+    });
+    
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // Background action, maybe just log or show a toast
+      console.error(`Invalid response from server (Status: ${res.status})`);
+      return;
+    }
+
+    if (res.ok) {
+      setNewMessage('');
+      fetchMessages();
+    } else {
+      console.error(data.error || `Failed to send message (Status: ${res.status})`);
+    }
+  };
+
+  if (loading) return <div className="p-20 text-center">Loading...</div>;
+  if (!ticket) return <div className="p-20 text-center">Ticket not found</div>;
+
+  const isSeller = user?.id === ticket.seller_id;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="lg:col-span-2 space-y-8">
+        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md uppercase mb-2 inline-block">
+                {ticket.transport_type}
+              </span>
+              <h1 className="text-3xl font-bold text-gray-900">{ticket.operator_name}</h1>
+              <p className="text-gray-500">{ticket.from_location} → {ticket.to_location}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-4xl font-bold text-emerald-600">৳{ticket.asking_price}</p>
+              <p className="text-sm text-gray-400 line-through">Original: ৳{ticket.original_price}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Journey Date</p>
+              <p className="font-bold text-gray-900">{new Date(ticket.journey_date).toLocaleDateString()}</p>
+            </div>
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Seat Number</p>
+              <p className="font-bold text-gray-900">{ticket.seat_number}</p>
+            </div>
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Purchase Date</p>
+              <p className="font-bold text-gray-900">{new Date(ticket.ticket_purchase_date).toLocaleDateString()}</p>
+            </div>
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Status</p>
+              <p className="font-bold text-emerald-600 uppercase text-sm">{ticket.status}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="font-bold text-gray-900">Ticket Image Verification</h3>
+            <div className="relative rounded-2xl overflow-hidden bg-gray-100 aspect-video flex items-center justify-center">
+              {ticket.ticket_image ? (
+                <>
+                  <img 
+                    src={ticket.ticket_image} 
+                    alt="Ticket" 
+                    className="w-full h-full object-contain blur-xl opacity-50"
+                  />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                    <Shield className="w-12 h-12 text-emerald-600 mb-4" />
+                    <p className="text-gray-900 font-bold mb-2">Sensitive Information Hidden</p>
+                    <p className="text-sm text-gray-500 max-w-xs">Full ticket image and QR codes are only visible to the buyer after purchase confirmation or to administrators for verification.</p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-400">No image provided</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Seller Info */}
+        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold text-2xl">
+              {ticket.seller?.name[0]}
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">{ticket.seller?.name}</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-400">★★★★★</span>
+                <span className="text-sm text-gray-400">Seller Rating: {ticket.seller?.rating}/5</span>
+              </div>
+            </div>
+          </div>
+          <button className="text-red-500 text-sm font-bold hover:underline flex items-center gap-1">
+            <Shield className="w-4 h-4" /> Report Seller
+          </button>
+        </div>
+      </div>
+
+      {/* Chat Section */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col h-[600px] lg:h-auto">
+        <div className="p-6 border-b border-gray-100">
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-emerald-600" /> 
+            {isSeller ? 'Chat with Buyer' : 'Negotiate with Seller'}
+          </h3>
+        </div>
+
+        {!user ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <p className="text-gray-500 mb-4">You must be logged in to chat with the seller.</p>
+            <Link to="/login" className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold">Login to Chat</Link>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {messages.length === 0 && (
+                <p className="text-center text-gray-400 text-sm py-10">No messages yet. Start the negotiation!</p>
+              )}
+              {messages.map((msg: any) => (
+                <div key={msg.id} className={cn(
+                  "flex flex-col max-w-[80%]",
+                  msg.sender_id === user.id ? "ml-auto items-end" : "mr-auto items-start"
+                )}>
+                  <div className={cn(
+                    "px-4 py-2 rounded-2xl text-sm",
+                    msg.sender_id === user.id ? "bg-emerald-600 text-white rounded-tr-none" : "bg-gray-100 text-gray-800 rounded-tl-none"
+                  )}>
+                    {msg.message}
+                  </div>
+                  <span className="text-[10px] text-gray-400 mt-1">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-100 flex gap-2">
+              <input 
+                type="text" 
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type your message..."
+                maxLength={500}
+                className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+              <button className="bg-emerald-600 text-white p-2 rounded-xl hover:bg-emerald-700 transition-colors">
+                <PlusCircle className="w-5 h-5 rotate-45" />
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const Login = () => {
+  const { user, login } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  if (user) return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      let data;
+      const text = await res.text();
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
+
+      if (!res.ok || data.error) throw new Error(data.error || 'Login failed');
+      
+      login(data.token, data.user);
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+        <p className="text-gray-500 mb-8">Login to your BariJao account</p>
+        
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-6">{error}</div>}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+            <input 
+              type="email" 
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              placeholder="name@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
+            <input 
+              type="password" 
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              placeholder="••••••••"
+            />
+          </div>
+          <button className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20">
+            Sign In
+          </button>
+        </form>
+        
+        <p className="text-center mt-8 text-sm text-gray-500">
+          Don't have an account? <Link to="/register" className="text-emerald-600 font-bold">Register here</Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const Register = () => {
+  const { user } = useAuth();
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  if (user) return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      
+      let data;
+      const text = await res.text();
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
+
+      if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
+      
+      navigate('/login');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12">
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
+        <p className="text-gray-500 mb-8">Join the community and travel safe</p>
+        
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-6">{error}</div>}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+            <input 
+              type="text" 
+              required
+              maxLength={30}
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              placeholder="John Doe"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+            <input 
+              type="email" 
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              placeholder="name@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
+            <input 
+              type="tel" 
+              required
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              placeholder="017XXXXXXXX"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
+            <input 
+              type="password" 
+              required
+              minLength={6}
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+              placeholder="••••••••"
+            />
+          </div>
+          <button className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20">
+            Register Now
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const UserDashboard = () => {
+  const { user, token } = useAuth();
+  const { t } = useTranslation();
+  const [data, setData] = useState<any>({ listings: [], purchases: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetch('/api/user/dashboard', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(async res => {
+          const text = await res.text();
+          let d;
+          try {
+            d = JSON.parse(text);
+          } catch (e) {
+            throw new Error(`Invalid response from server (Status: ${res.status})`);
+          }
+          if (!res.ok) throw new Error(d.error || `Failed to fetch dashboard (Status: ${res.status})`);
+          return d;
+        })
+        .then(d => {
+          setData(d);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setLoading(false);
+        });
+    }
+  }, [user]);
+
+  if (!user) return <Navigate to="/login" />;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">{t.dashboard}</h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Listings */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <TicketIcon className="w-6 h-6 text-emerald-600" /> My Listings
+          </h2>
+          <div className="space-y-4">
+            {data.listings.length === 0 ? (
+              <p className="text-gray-400 text-sm">No active listings.</p>
+            ) : (
+              data.listings.map((ticket: any) => (
+                <div key={ticket.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-gray-900">{ticket.operator_name}</p>
+                    <p className="text-xs text-gray-400">{ticket.from_location} → {ticket.to_location}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-emerald-600">৳{ticket.asking_price}</p>
+                    <Link to={`/ticket/${ticket.id}`} className="text-xs text-gray-400 hover:underline">View</Link>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Purchases */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="w-6 h-6 text-emerald-600" /> My Purchases
+          </h2>
+          <div className="space-y-4">
+            {data.purchases.length === 0 ? (
+              <p className="text-gray-400 text-sm">No purchases yet.</p>
+            ) : (
+              data.purchases.map((tx: any) => (
+                <div key={tx.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-gray-900">{tx.ticket?.operator_name}</p>
+                    <p className="text-xs text-gray-400">Status: <span className="text-emerald-600 font-bold uppercase">{tx.status}</span></p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900">৳{tx.ticket?.asking_price}</p>
+                    <Link to={`/ticket/${tx.ticket_id}`} className="text-xs text-gray-400 hover:underline">View</Link>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = () => {
+  const { user, token } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    Promise.all([
+      fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
+        const text = await res.text();
+        try { return JSON.parse(text); } catch (e) { return []; }
+      }),
+      fetch('/api/tickets', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
+        const text = await res.text();
+        try { return JSON.parse(text); } catch (e) { return []; }
+      })
+    ]).then(([u, t]) => {
+      setUsers(u);
+      setTickets(t);
+      setLoading(false);
+    });
+  }, [user]);
+
+  const handleAction = async (id: string, action: 'approve' | 'delete') => {
+    const method = action === 'approve' ? 'POST' : 'DELETE';
+    const url = `/api/admin/tickets/${id}${action === 'approve' ? '/approve' : ''}`;
+    try {
+      const res = await fetch(url, { method, headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) {
+        const text = await res.text();
+        let errorData;
+        try { errorData = JSON.parse(text); } catch (e) { errorData = { error: 'Unknown error' }; }
+        alert(errorData.error || `Failed to ${action} ticket`);
+        return;
+      }
+      
+      // Refresh
+      const refreshRes = await fetch('/api/tickets');
+      const refreshText = await refreshRes.text();
+      try {
+        setTickets(JSON.parse(refreshText));
+      } catch (e) {
+        setTickets([]);
+      }
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  if (user?.role !== 'admin') return <Navigate to="/" />;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+        <Shield className="w-8 h-8 text-emerald-600" /> Admin Dashboard
+      </h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-sm font-bold text-gray-400 uppercase mb-1">Total Users</p>
+          <p className="text-4xl font-bold text-gray-900">{users.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-sm font-bold text-gray-400 uppercase mb-1">Active Tickets</p>
+          <p className="text-4xl font-bold text-gray-900">{tickets.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-sm font-bold text-gray-400 uppercase mb-1">Reports</p>
+          <p className="text-4xl font-bold text-red-500">0</p>
+        </div>
+      </div>
+
+      <div className="space-y-8">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 className="font-bold text-gray-900">User Management</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  <th className="px-6 py-4">Name</th>
+                  <th className="px-6 py-4">Email</th>
+                  <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.map((u: any) => (
+                  <tr key={u.id} className="text-sm text-gray-700 hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium">{u.name}</td>
+                    <td className="px-6 py-4">{u.email}</td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2 py-1 rounded-md text-[10px] font-bold uppercase",
+                        u.role === 'admin' ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"
+                      )}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button className="text-red-500 font-bold hover:underline">Ban</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 className="font-bold text-gray-900">Ticket Listings</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  <th className="px-6 py-4">Operator</th>
+                  <th className="px-6 py-4">Route</th>
+                  <th className="px-6 py-4">Price</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tickets.map((t: any) => (
+                  <tr key={t.id} className="text-sm text-gray-700 hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium">{t.operator_name}</td>
+                    <td className="px-6 py-4">{t.from_location} → {t.to_location}</td>
+                    <td className="px-6 py-4">৳{t.asking_price}</td>
+                    <td className="px-6 py-4">
+                      <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[10px] font-bold uppercase">
+                        {t.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 flex gap-4">
+                      <button onClick={() => handleAction(t.id, 'delete')} className="text-red-500 font-bold hover:underline">Remove</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main App ---
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <TranslationProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
+            <Navbar />
+            <main>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/dashboard" element={<UserDashboard />} />
+                <Route path="/sell" element={<SellTicket />} />
+                <Route path="/ticket/:id" element={<TicketDetails />} />
+              </Routes>
+            </main>
+            
+            <footer className="bg-white border-t border-gray-100 py-12 mt-20">
+              <div className="max-w-7xl mx-auto px-4 text-center">
+                <div className="flex items-center justify-center gap-2 text-emerald-600 font-bold text-xl mb-4">
+                  <TicketIcon className="w-6 h-6" /> BariJao
+                </div>
+                <p className="text-gray-400 text-sm mb-8">© 2026 BariJao – Eid Ticket Exchange. All rights reserved.</p>
+                <div className="flex justify-center gap-6 text-sm font-medium text-gray-500">
+                  <a href="#" className="hover:text-gray-900">Terms</a>
+                  <a href="#" className="hover:text-gray-900">Privacy</a>
+                  <a href="#" className="hover:text-gray-900">Contact</a>
+                </div>
+              </div>
+            </footer>
+          </div>
+        </Router>
+      </TranslationProvider>
+    </AuthProvider>
+  );
+}
