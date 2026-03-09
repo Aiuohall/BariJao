@@ -19,12 +19,15 @@ const __dirname = path.dirname(__filename);
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = 3000;
+
+// Serve uploads folder
+app.use("/uploads", express.static(uploadDir));
 
 // Supabase Setup
 const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -110,6 +113,7 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", loginLimiter, async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: "Email and password required" });
   
   // Default Admin Check
   if (email === "admin@barijao.com" && password === "admin123") {

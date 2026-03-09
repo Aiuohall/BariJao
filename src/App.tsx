@@ -162,7 +162,8 @@ const SellTicket = () => {
       try {
         result = JSON.parse(text);
       } catch (e) {
-        throw new Error(`Server returned an invalid response (Status: ${res.status})`);
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check server logs.`);
       }
       
       if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
@@ -829,7 +830,8 @@ const Login = () => {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        throw new Error('Server returned an invalid response. Please try again.');
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
 
       if (!res.ok || data.error) throw new Error(data.error || 'Login failed');
@@ -912,7 +914,8 @@ const Register = () => {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        throw new Error('Server returned an invalid response. Please try again.');
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
 
       if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
@@ -1234,6 +1237,88 @@ const AdminDashboard = () => {
   );
 };
 
+const Contact = () => {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-16">
+      <h1 className="text-4xl font-bold text-gray-900 mb-8">Contact Us</h1>
+      <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-8">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Developers</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <a 
+              href="https://www.facebook.com/aiuohall.ratul" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-emerald-50 transition-colors group"
+            >
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">AR</div>
+              <div>
+                <p className="font-bold text-gray-900 group-hover:text-emerald-600">Aiuohall Ratul</p>
+                <p className="text-xs text-gray-500">Facebook Profile</p>
+              </div>
+            </a>
+            <a 
+              href="https://www.facebook.com/developer.partner" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-emerald-50 transition-colors group"
+            >
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">DP</div>
+              <div>
+                <p className="font-bold text-gray-900 group-hover:text-emerald-600">Dev Partner</p>
+                <p className="text-xs text-gray-500">Facebook Profile</p>
+              </div>
+            </a>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Email Support</h2>
+          <p className="text-gray-600">For any inquiries or support, please email us at:</p>
+          <a href="mailto:AiuohallRatul2000@gmail.com" className="text-emerald-600 font-bold hover:underline">AiuohallRatul2000@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Terms = () => {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-16">
+      <h1 className="text-4xl font-bold text-gray-900 mb-8">Terms of Service</h1>
+      <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm prose prose-emerald max-w-none">
+        <p>Welcome to BariJao. By using our service, you agree to the following terms:</p>
+        <h3>1. Platform Role</h3>
+        <p>BariJao is a peer-to-peer ticket exchange platform. We facilitate communication between buyers and sellers but are not responsible for the actual tickets or transactions.</p>
+        <h3>2. User Responsibility</h3>
+        <p>Users are responsible for verifying the authenticity of tickets. We recommend meeting in person or using secure payment methods.</p>
+        <h3>3. Prohibited Activities</h3>
+        <p>Selling fake tickets, scamming, or harassing other users will lead to an immediate and permanent ban.</p>
+        <h3>4. Limitation of Liability</h3>
+        <p>BariJao is not liable for any financial loss or damages resulting from the use of our platform.</p>
+      </div>
+    </div>
+  );
+};
+
+const Privacy = () => {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-16">
+      <h1 className="text-4xl font-bold text-gray-900 mb-8">Privacy Policy</h1>
+      <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm prose prose-emerald max-w-none">
+        <p>Your privacy is important to us. This policy explains how we handle your data:</p>
+        <h3>1. Data Collection</h3>
+        <p>We collect your name, email, and phone number to facilitate ticket exchanges and account security.</p>
+        <h3>2. Data Usage</h3>
+        <p>Your contact information is only shared with other users when you explicitly engage in a ticket negotiation or purchase.</p>
+        <h3>3. Data Security</h3>
+        <p>We use industry-standard encryption and secure databases (Supabase) to protect your information.</p>
+        <h3>4. Cookies</h3>
+        <p>We use essential cookies to keep you logged in and improve your experience.</p>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -1252,6 +1337,9 @@ export default function App() {
                 <Route path="/dashboard" element={<UserDashboard />} />
                 <Route path="/sell" element={<SellTicket />} />
                 <Route path="/ticket/:id" element={<TicketDetails />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/contact" element={<Contact />} />
               </Routes>
             </main>
             
@@ -1262,9 +1350,9 @@ export default function App() {
                 </div>
                 <p className="text-gray-400 text-sm mb-8">© 2026 BariJao – Eid Ticket Exchange. All rights reserved.</p>
                 <div className="flex justify-center gap-6 text-sm font-medium text-gray-500">
-                  <a href="#" className="hover:text-gray-900">Terms</a>
-                  <a href="#" className="hover:text-gray-900">Privacy</a>
-                  <a href="#" className="hover:text-gray-900">Contact</a>
+                  <Link to="/terms" className="hover:text-gray-900">Terms</Link>
+                  <Link to="/privacy" className="hover:text-gray-900">Privacy</Link>
+                  <Link to="/contact" className="hover:text-gray-900">Contact</Link>
                 </div>
               </div>
             </footer>
