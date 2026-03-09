@@ -163,7 +163,10 @@ const SellTicket = () => {
         result = JSON.parse(text);
       } catch (e) {
         console.error('Non-JSON response:', text);
-        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check server logs.`);
+        if (res.status === 404) {
+          throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
+        }
+        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
       
       if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
@@ -831,6 +834,9 @@ const Login = () => {
         data = JSON.parse(text);
       } catch (e) {
         console.error('Non-JSON response:', text);
+        if (res.status === 404) {
+          throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
+        }
         throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
 
@@ -915,6 +921,9 @@ const Register = () => {
         data = JSON.parse(text);
       } catch (e) {
         console.error('Non-JSON response:', text);
+        if (res.status === 404) {
+          throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
+        }
         throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
 

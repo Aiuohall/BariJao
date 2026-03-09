@@ -85,6 +85,9 @@ const authenticate = (req: any, res: any, next: any) => {
 };
 
 // --- API Routes ---
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
+});
 
 // Districts Autocomplete
 app.get("/api/districts", (req, res) => {
@@ -97,6 +100,7 @@ app.get("/api/districts", (req, res) => {
 
 // Auth Routes
 app.post("/api/auth/register", async (req, res) => {
+  console.log("Register attempt:", req.body.email);
   const { name, email, phone, password } = req.body;
   if (!name || !email || !phone || !password) return res.status(400).json({ error: "Missing fields" });
   
