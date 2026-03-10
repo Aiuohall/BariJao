@@ -1,20 +1,21 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# BariJao - Safe Ticket Exchange
 
-# Run and deploy your AI Studio app
+This is a community-based platform for safely buying and reselling travel tickets in Bangladesh.
 
-This contains everything you need to run your app locally.
+## 🚀 Getting Started
 
-View your app in AI Studio: https://ai.studio/apps/f07eabbc-fb71-4850-9ebe-f98693aeb342
+1.  **Use the correct URL:** This app requires a backend. Please use the **App URL** provided in your AI Studio dashboard.
+2.  **Database Setup:**
+    *   Go to your [Supabase Dashboard](https://supabase.com/).
+    *   Open the **SQL Editor**.
+    *   Copy and paste the contents of `supabase.sql` (found in this project) and click **Run**.
+3.  **Environment Variables:**
+    *   Set `SUPABASE_URL` and `SUPABASE_KEY` in your AI Studio Secrets panel.
+    *   (Optional) Set `JWT_SECRET` for enhanced security.
 
-## Run Locally
+## 🛠️ Features
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+*   **Verified Listings:** Sellers upload ticket images for verification.
+*   **Secure Chat:** Peer-to-peer messaging for negotiations.
+*   **Admin Dashboard:** Admins can approve or delete suspicious listings.
+*   **Bilingual:** Supports both English and Bengali.

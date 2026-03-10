@@ -30,8 +30,8 @@ const PORT = 3000;
 app.use("/uploads", express.static(uploadDir));
 
 // Supabase Setup
-const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_KEY || "";
+const supabaseUrl = process.env.SUPABASE_URL || "https://vuuxvzydekuvlhpfbsxx.supabase.co";
+const supabaseKey = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1dXh2enlkZWt1dmxocGZic3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMTEzMTgsImV4cCI6MjA4ODU4NzMxOH0.qWQGYdyUjxGvYJb2jXuVuBTflOT9otvElawj7tyXsvQ";
 
 if (!supabaseUrl || !supabaseKey) {
   console.error("SUPABASE_URL or SUPABASE_KEY is missing. Please set them in the environment variables.");
@@ -43,6 +43,12 @@ const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
 
 app.use(cors());
 app.use(express.json());
+
+// Request Logging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // Rate Limiting
 const loginLimiter = rateLimit({

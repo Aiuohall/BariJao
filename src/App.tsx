@@ -430,6 +430,16 @@ const Home = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
+      {window.location.hostname.includes('vercel.app') && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-8 mb-12 text-center shadow-lg">
+          <h2 className="text-2xl font-bold text-red-700 mb-2">⚠️ Critical: Wrong URL Detected</h2>
+          <p className="text-red-600 mb-4">You are viewing this app on <strong>Vercel</strong>, which does not support the backend server. The database and login will NOT work here.</p>
+          <div className="bg-white p-4 rounded-xl border border-red-100 inline-block">
+            <p className="text-sm text-gray-500 mb-1">Please use the official App URL:</p>
+            <code className="text-emerald-600 font-bold break-all">https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app</code>
+          </div>
+        </div>
+      )}
       {/* Hero Section */}
       <div className="text-center mb-16">
         <h1 className="text-5xl font-extrabold text-gray-900 mb-6 tracking-tight">
