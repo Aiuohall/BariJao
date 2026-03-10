@@ -14,6 +14,42 @@ function cn(...inputs: ClassValue[]) {
 
 // --- Components ---
 
+const ServerStatus = () => {
+  const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch('/api/health');
+        if (res.ok) setStatus('online');
+        else setStatus('offline');
+      } catch (e) {
+        setStatus('offline');
+      }
+    };
+    check();
+    const interval = setInterval(check, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-100 shadow-sm">
+      <div className={cn(
+        "w-2.5 h-2.5 rounded-full animate-pulse",
+        status === 'online' ? "bg-emerald-500" : status === 'offline' ? "bg-red-500" : "bg-amber-500"
+      )} />
+      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">
+        {status === 'online' ? 'System Online' : status === 'offline' ? 'System Offline' : 'Connecting...'}
+      </span>
+      {status === 'offline' && window.location.hostname.includes('vercel.app') && (
+        <span className="text-[10px] text-red-500 font-medium ml-2 border-l pl-2 border-gray-200">
+          Vercel detected: Use the App URL instead!
+        </span>
+      )}
+    </div>
+  );
+};
+
 const Navbar = () => {
   const { user, logout } = useAuth();
   const { lang, setLang, t } = useTranslation();
@@ -28,6 +64,9 @@ const Navbar = () => {
               <TicketIcon className="w-8 h-8" />
               <span className="hidden sm:inline">{t.appName}</span>
             </Link>
+            <div className="hidden lg:block ml-2">
+              <ServerStatus />
+            </div>
           </div>
 
           {/* Desktop Nav */}
@@ -165,6 +204,9 @@ const SellTicket = () => {
         console.error('Non-JSON response:', text);
         if (res.status === 404) {
           throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
+        }
+        if (res.status === 405) {
+          throw new Error('Method Not Allowed (405). This usually happens if you are using a static hosting service like Vercel without a backend. Please use the App URL provided.');
         }
         throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
@@ -837,6 +879,9 @@ const Login = () => {
         if (res.status === 404) {
           throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
         }
+        if (res.status === 405) {
+          throw new Error('Method Not Allowed (405). This usually happens if you are using a static hosting service like Vercel without a backend. Please use the App URL provided.');
+        }
         throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
 
@@ -857,7 +902,17 @@ const Login = () => {
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
         <p className="text-gray-500 mb-8">Login to your BariJao account</p>
         
-        {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-6">{error}</div>}
+        {error && (
+          <div className="space-y-4 mb-6">
+            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100">{error}</div>
+            {error.includes('405') && (
+              <div className="bg-amber-50 text-amber-800 p-4 rounded-xl text-xs border border-amber-100 leading-relaxed">
+                <p className="font-bold mb-1">⚠️ Connection Issue Detected</p>
+                <p>You are likely viewing the app on <strong>Vercel</strong>, which doesn't support the backend server. Please use the <strong>App URL</strong> provided in your AI Studio dashboard to access the full functionality.</p>
+              </div>
+            )}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -924,6 +979,9 @@ const Register = () => {
         if (res.status === 404) {
           throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
         }
+        if (res.status === 405) {
+          throw new Error('Method Not Allowed (405). This usually happens if you are using a static hosting service like Vercel without a backend. Please use the App URL provided.');
+        }
         throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
       }
 
@@ -943,7 +1001,17 @@ const Register = () => {
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
         <p className="text-gray-500 mb-8">Join the community and travel safe</p>
         
-        {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-6">{error}</div>}
+        {error && (
+          <div className="space-y-4 mb-6">
+            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100">{error}</div>
+            {error.includes('405') && (
+              <div className="bg-amber-50 text-amber-800 p-4 rounded-xl text-xs border border-amber-100 leading-relaxed">
+                <p className="font-bold mb-1">⚠️ Connection Issue Detected</p>
+                <p>You are likely viewing the app on <strong>Vercel</strong>, which doesn't support the backend server. Please use the <strong>App URL</strong> provided in your AI Studio dashboard to access the full functionality.</p>
+              </div>
+            )}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
