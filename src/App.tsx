@@ -17,17 +17,32 @@ function cn(...inputs: ClassValue[]) {
 // --- Components ---
 
 const ServerStatus = () => {
-  const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [status, setStatus] = useState<'checking' | 'online' | 'offline' | 'supabase'>('checking');
 
   useEffect(() => {
     const check = async () => {
       try {
         const res = await fetch('/api/health');
-        const data = await res.json();
-        if (res.ok && data.status === 'ok') setStatus('online');
-        else setStatus('offline');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'ok') {
+            setStatus('online');
+            return;
+          }
+        }
+        throw new Error('Backend offline');
       } catch (e) {
-        setStatus('offline');
+        // Fallback: Check Supabase
+        try {
+          const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+          if (!error) {
+            setStatus('supabase');
+          } else {
+            setStatus('offline');
+          }
+        } catch (err) {
+          setStatus('offline');
+        }
       }
     };
     check();
@@ -39,16 +54,15 @@ const ServerStatus = () => {
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-100 shadow-sm">
       <div className={cn(
         "w-2.5 h-2.5 rounded-full animate-pulse",
-        status === 'online' ? "bg-emerald-500" : status === 'offline' ? "bg-red-500" : "bg-amber-500"
+        status === 'online' ? "bg-emerald-500" : 
+        status === 'supabase' ? "bg-blue-500" :
+        status === 'offline' ? "bg-red-500" : "bg-amber-500"
       )} />
       <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">
-        {status === 'online' ? 'System Online' : status === 'offline' ? 'System Offline' : 'Connecting...'}
+        {status === 'online' ? 'System Online' : 
+         status === 'supabase' ? 'Supabase Direct' :
+         status === 'offline' ? 'System Offline' : 'Connecting...'}
       </span>
-      {status === 'offline' && window.location.hostname.includes('vercel.app') && (
-        <span className="text-[10px] text-red-500 font-medium ml-2 border-l pl-2 border-gray-200">
-          Vercel detected: Use the App URL instead!
-        </span>
-      )}
     </div>
   );
 };
@@ -433,37 +447,6 @@ const Home = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      {window.location.hostname.includes('vercel.app') && (
-        <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-8 mb-12 text-center shadow-lg">
-          <h2 className="text-2xl font-bold text-red-700 mb-2">⚠️ Critical: Wrong URL Detected</h2>
-          <p className="text-red-600 mb-4">You are viewing this app on <strong>Vercel</strong>, which does not support the backend server. The database and login will NOT work here.</p>
-          <div className="bg-white p-6 rounded-2xl border border-red-100 inline-block shadow-sm">
-            <p className="text-sm text-gray-500 mb-3">Please use the official App URL for full functionality:</p>
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <code className="bg-gray-50 px-4 py-2 rounded-lg text-emerald-600 font-mono text-xs border border-gray-100 break-all">
-                https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app
-              </code>
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText('https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app');
-                  alert('Link copied to clipboard!');
-                }}
-                className="whitespace-nowrap bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition-all"
-              >
-                Copy Link
-              </button>
-            </div>
-            <div className="mt-4">
-              <a 
-                href="https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app"
-                className="inline-flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
-              >
-                Switch to Official App URL
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Hero Section */}
       <div className="text-center mb-16">
         <h1 className="text-5xl font-extrabold text-gray-900 mb-6 tracking-tight">
@@ -936,15 +919,7 @@ const Login = () => {
         <p className="text-gray-500 mb-8">Login to your BariJao account</p>
         
         {error && (
-          <div className="space-y-4 mb-6">
-            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100">{error}</div>
-            {error.includes('405') && (
-              <div className="bg-amber-50 text-amber-800 p-4 rounded-xl text-xs border border-amber-100 leading-relaxed">
-                <p className="font-bold mb-1">⚠️ Connection Issue Detected</p>
-                <p>You are likely viewing the app on <strong>Vercel</strong>, which doesn't support the backend server. Please use the <strong>App URL</strong> provided in your AI Studio dashboard to access the full functionality.</p>
-              </div>
-            )}
-          </div>
+          <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 mb-6">{error}</div>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -1032,15 +1007,7 @@ const Register = () => {
         <p className="text-gray-500 mb-8">Join the community and travel safe</p>
         
         {error && (
-          <div className="space-y-4 mb-6">
-            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100">{error}</div>
-            {error.includes('405') && (
-              <div className="bg-amber-50 text-amber-800 p-4 rounded-xl text-xs border border-amber-100 leading-relaxed">
-                <p className="font-bold mb-1">⚠️ Connection Issue Detected</p>
-                <p>You are likely viewing the app on <strong>Vercel</strong>, which doesn't support the backend server. Please use the <strong>App URL</strong> provided in your AI Studio dashboard to access the full functionality.</p>
-              </div>
-            )}
-          </div>
+          <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 mb-6">{error}</div>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
