@@ -6,13 +6,14 @@ export const supabaseService = {
   async register(userData: any) {
     // In a real Supabase app, we'd use supabase.auth.signUp
     // But to keep it compatible with the existing 'users' table logic:
+    const { password, ...rest } = userData;
     const { data, error } = await supabase
       .from('users')
       .insert([{ 
-        ...userData, 
+        ...rest, 
         role: 'user', 
         rating: 5,
-        password_hash: userData.password // Note: In client-side only, we'd need a different approach for hashing or use Supabase Auth
+        password_hash: password
       }])
       .select()
       .single();
