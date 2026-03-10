@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useN
 import { AuthProvider, useAuth } from './AuthContext';
 import { TranslationProvider, useTranslation } from './TranslationContext';
 import { BANGLADESH_DISTRICTS } from './constants';
+import { supabase } from './supabaseClient';
+import { supabaseService } from './services/supabaseService';
 import React, { useState, useEffect } from 'react';
 import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -187,32 +189,29 @@ const SellTicket = () => {
     setError('');
 
     try {
-      const data = new FormData();
-      Object.entries(formData).forEach(([key, val]) => data.append(key, val as string));
-      if (image) data.append('ticket_image', image);
-
-      const res = await fetch('/api/tickets', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: data,
-      });
-      
-      const text = await res.text();
-      let result;
       try {
-        result = JSON.parse(text);
+        const data = new FormData();
+        Object.entries(formData).forEach(([key, val]) => data.append(key, val as string));
+        if (image) data.append('ticket_image', image);
+
+        const res = await fetch('/api/tickets', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: data,
+        });
+        
+        const text = await res.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Invalid JSON');
+        }
+        if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
       } catch (e) {
-        console.error('Non-JSON response:', text);
-        if (res.status === 404) {
-          throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
-        }
-        if (res.status === 405) {
-          throw new Error('Method Not Allowed (405). This usually happens if you are using a static hosting service like Vercel without a backend. Please use the App URL provided.');
-        }
-        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
+        console.log("Backend failed, using Supabase directly...");
+        await supabaseService.createTicket(formData, user!.id);
       }
-      
-      if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
       navigate('/dashboard');
     } catch (e: any) {
       setError(e.message);
@@ -399,19 +398,22 @@ const Home = () => {
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams(search);
-      const res = await fetch(`/api/tickets?${params}`);
-      const text = await res.text();
+      // Try Express API first, fallback to Supabase directly
       let data;
       try {
-        data = JSON.parse(text);
+        const params = new URLSearchParams(search);
+        const res = await fetch(`/api/tickets?${params}`);
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          throw new Error('API failed');
+        }
       } catch (e) {
-        throw new Error(`Server returned an invalid response (Status: ${res.status})`);
+        console.log("Backend not found, using Supabase directly...");
+        data = await supabaseService.getTickets(search);
       }
-      
-      if (!res.ok) throw new Error(data.error || `Failed to fetch tickets (Status: ${res.status})`);
       setTickets(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
     } finally {
       setLoading(false);
@@ -668,16 +670,18 @@ const TicketDetails = () => {
 
   const fetchTicket = async () => {
     try {
-      const res = await fetch(`/api/tickets/${id}`);
-      const text = await res.text();
       let data;
       try {
-        data = JSON.parse(text);
+        const res = await fetch(`/api/tickets/${id}`);
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          throw new Error('API failed');
+        }
       } catch (e) {
-        throw new Error(`Server returned an invalid response (Status: ${res.status})`);
+        console.log("Backend not found, using Supabase directly...");
+        data = await supabaseService.getTicketById(id!);
       }
-      
-      if (!res.ok) throw new Error(data.error || `Ticket not found (Status: ${res.status})`);
       setTicket(data);
     } catch (e) {
       console.error(e);
@@ -896,28 +900,25 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      
       let data;
-      const text = await res.text();
       try {
-        data = JSON.parse(text);
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        
+        const text = await res.text();
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Invalid JSON');
+        }
+        if (!res.ok) throw new Error(data.error || 'Login failed');
       } catch (e) {
-        console.error('Non-JSON response:', text);
-        if (res.status === 404) {
-          throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
-        }
-        if (res.status === 405) {
-          throw new Error('Method Not Allowed (405). This usually happens if you are using a static hosting service like Vercel without a backend. Please use the App URL provided.');
-        }
-        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
+        console.log("Backend login failed, trying Supabase directly...");
+        data = await supabaseService.login(email, password);
       }
-
-      if (!res.ok || data.error) throw new Error(data.error || 'Login failed');
       
       login(data.token, data.user);
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
@@ -996,28 +997,25 @@ const Register = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      
-      let data;
-      const text = await res.text();
       try {
-        data = JSON.parse(text);
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Invalid JSON');
+        }
+        if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
       } catch (e) {
-        console.error('Non-JSON response:', text);
-        if (res.status === 404) {
-          throw new Error('Server route not found (404). Please ensure you are using the correct App URL and the server is running.');
-        }
-        if (res.status === 405) {
-          throw new Error('Method Not Allowed (405). This usually happens if you are using a static hosting service like Vercel without a backend. Please use the App URL provided.');
-        }
-        throw new Error(`Server returned an invalid response (Status: ${res.status}). Please check console for details.`);
+        console.log("Backend registration failed, trying Supabase directly...");
+        await supabaseService.register(formData);
       }
-
-      if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
       
       navigate('/login');
     } catch (e: any) {
@@ -1109,28 +1107,28 @@ const UserDashboard = () => {
 
   useEffect(() => {
     if (user) {
-      fetch('/api/user/dashboard', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(async res => {
-          const text = await res.text();
-          let d;
-          try {
-            d = JSON.parse(text);
-          } catch (e) {
-            throw new Error(`Invalid response from server (Status: ${res.status})`);
+      const fetchDashboard = async () => {
+        try {
+          const res = await fetch('/api/user/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const d = await res.json();
+            setData(d);
+          } else {
+            throw new Error('API failed');
           }
-          if (!res.ok) throw new Error(d.error || `Failed to fetch dashboard (Status: ${res.status})`);
-          return d;
-        })
-        .then(d => {
-          setData(d);
+        } catch (e) {
+          console.log("Backend failed, using Supabase directly for dashboard...");
+          // Fallback: Fetch listings and purchases from Supabase
+          const { data: listings } = await supabase.from('tickets').select('*').eq('seller_id', user.id);
+          const { data: purchases } = await supabase.from('transactions').select('*, ticket:tickets(*)').eq('buyer_id', user.id);
+          setData({ listings: listings || [], purchases: purchases || [] });
+        } finally {
           setLoading(false);
-        })
-        .catch(err => {
-          console.error(err);
-          setLoading(false);
-        });
+        }
+      };
+      fetchDashboard();
     }
   }, [user]);
 

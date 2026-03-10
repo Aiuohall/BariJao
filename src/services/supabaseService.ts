@@ -1,0 +1,75 @@
+import { supabase } from '../supabaseClient';
+import { User, Ticket, Message } from '../types';
+
+export const supabaseService = {
+  // Auth
+  async register(userData: any) {
+    // In a real Supabase app, we'd use supabase.auth.signUp
+    // But to keep it compatible with the existing 'users' table logic:
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ 
+        ...userData, 
+        role: 'user', 
+        rating: 5,
+        password_hash: userData.password // Note: In client-side only, we'd need a different approach for hashing or use Supabase Auth
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async login(email: string, pass: string) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error || !user) throw new Error('Invalid credentials');
+    if (user.password_hash !== pass) throw new Error('Invalid credentials'); // Simple check for prototype
+    
+    return { user, token: 'client-side-token' };
+  },
+
+  // Tickets
+  async getTickets(filters: any) {
+    let query = supabase
+      .from('tickets')
+      .select('*, seller:users(name, rating)')
+      .eq('status', 'available');
+
+    if (filters.from) query = query.ilike('from_location', `%${filters.from}%`);
+    if (filters.to) query = query.ilike('to_location', `%${filters.to}%`);
+    if (filters.type) query = query.eq('transport_type', filters.type);
+    if (filters.date) query = query.eq('journey_date', filters.date);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  },
+
+  async createTicket(ticketData: any, userId: string) {
+    const { data, error } = await supabase
+      .from('tickets')
+      .insert([{ ...ticketData, seller_id: userId, status: 'available' }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async getTicketById(id: string) {
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('*, seller:users(name, rating, phone)')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+};
