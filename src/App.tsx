@@ -435,15 +435,30 @@ const Home = () => {
         <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-8 mb-12 text-center shadow-lg">
           <h2 className="text-2xl font-bold text-red-700 mb-2">⚠️ Critical: Wrong URL Detected</h2>
           <p className="text-red-600 mb-4">You are viewing this app on <strong>Vercel</strong>, which does not support the backend server. The database and login will NOT work here.</p>
-          <div className="bg-white p-4 rounded-xl border border-red-100 inline-block">
-            <p className="text-sm text-gray-500 mb-1">Please use the official App URL:</p>
-            <code className="text-emerald-600 font-bold break-all block mb-4">https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app</code>
-            <a 
-              href="https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app"
-              className="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all"
-            >
-              Switch to Official App URL
-            </a>
+          <div className="bg-white p-6 rounded-2xl border border-red-100 inline-block shadow-sm">
+            <p className="text-sm text-gray-500 mb-3">Please use the official App URL for full functionality:</p>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <code className="bg-gray-50 px-4 py-2 rounded-lg text-emerald-600 font-mono text-xs border border-gray-100 break-all">
+                https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app
+              </code>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText('https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app');
+                  alert('Link copied to clipboard!');
+                }}
+                className="whitespace-nowrap bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition-all"
+              >
+                Copy Link
+              </button>
+            </div>
+            <div className="mt-4">
+              <a 
+                href="https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app"
+                className="inline-flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+              >
+                Switch to Official App URL
+              </a>
+            </div>
           </div>
         </div>
       )}
