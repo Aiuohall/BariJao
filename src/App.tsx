@@ -21,7 +21,8 @@ const ServerStatus = () => {
     const check = async () => {
       try {
         const res = await fetch('/api/health');
-        if (res.ok) setStatus('online');
+        const data = await res.json();
+        if (res.ok && data.status === 'ok') setStatus('online');
         else setStatus('offline');
       } catch (e) {
         setStatus('offline');
@@ -436,7 +437,13 @@ const Home = () => {
           <p className="text-red-600 mb-4">You are viewing this app on <strong>Vercel</strong>, which does not support the backend server. The database and login will NOT work here.</p>
           <div className="bg-white p-4 rounded-xl border border-red-100 inline-block">
             <p className="text-sm text-gray-500 mb-1">Please use the official App URL:</p>
-            <code className="text-emerald-600 font-bold break-all">https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app</code>
+            <code className="text-emerald-600 font-bold break-all block mb-4">https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app</code>
+            <a 
+              href="https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app"
+              className="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all"
+            >
+              Switch to Official App URL
+            </a>
           </div>
         </div>
       )}
