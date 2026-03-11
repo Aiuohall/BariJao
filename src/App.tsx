@@ -1320,12 +1320,19 @@ const Contact = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-4">Developers</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <a 
-              href="https://www.facebook.com/aiuohall.ratul" 
+              href="https://www.facebook.com/share/1bKZaxukfW/" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-emerald-50 transition-colors group"
             >
-              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">AR</div>
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-100 group-hover:border-emerald-200 transition-colors">
+                <img 
+                  src="https://unavatar.io/facebook/aiuohall.ratul" 
+                  alt="Aiuohall Ratul" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
               <div>
                 <p className="font-bold text-gray-900 group-hover:text-emerald-600">Aiuohall Ratul</p>
                 <p className="text-xs text-gray-500">Facebook Profile</p>
@@ -1337,7 +1344,14 @@ const Contact = () => {
               rel="noopener noreferrer"
               className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-emerald-50 transition-colors group"
             >
-              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">RN</div>
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-100 group-hover:border-emerald-200 transition-colors">
+                <img 
+                  src="https://unavatar.io/facebook/100039819497387" 
+                  alt="Redwan Nice" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
               <div>
                 <p className="font-bold text-gray-900 group-hover:text-emerald-600">Redwan Nice</p>
                 <p className="text-xs text-gray-500">Facebook Profile</p>
