@@ -29,6 +29,26 @@ export interface Ticket {
   };
 }
 
+export interface Listing {
+  id: string;
+  user_id: string;
+  transport_type: 'bus' | 'train' | 'launch';
+  operator_name: string;
+  from_location: string;
+  to_location: string;
+  journey_date: string;
+  seat_number: string;
+  original_price: number;
+  asking_price: number;
+  ticket_image: string;
+  status: 'pending' | 'available' | 'sold';
+  created_at: string;
+  user?: {
+    name: string;
+    rating: number;
+  };
+}
+
 export interface Message {
   id: string;
   sender_id: string;

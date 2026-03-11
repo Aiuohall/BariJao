@@ -35,6 +35,68 @@ export const supabaseService = {
     return { user, token: 'client-side-token' };
   },
 
+  // Listings
+  async getListings(filters: any) {
+    let query = supabase
+      .from('listings')
+      .select('*, user:users(name, rating)')
+      .eq('status', 'available');
+
+    if (filters.from) query = query.ilike('from_location', `%${filters.from}%`);
+    if (filters.to) query = query.ilike('to_location', `%${filters.to}%`);
+    if (filters.type) query = query.eq('transport_type', filters.type);
+    if (filters.date) query = query.eq('journey_date', filters.date);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  },
+
+  async getUserListings(userId: string) {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async createListing(listingData: any, userId: string) {
+    const { data, error } = await supabase
+      .from('listings')
+      .insert([{ ...listingData, user_id: userId, status: 'pending' }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async updateListingStatus(id: string, status: 'pending' | 'available' | 'sold') {
+    const { data, error } = await supabase
+      .from('listings')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async getListingById(id: string) {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('*, user:users(name, rating, phone)')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
   // Tickets
   async getTickets(filters: any) {
     let query = supabase

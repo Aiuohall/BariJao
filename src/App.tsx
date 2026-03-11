@@ -1,12 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useNavigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './AuthCointext';
+import { AuthProvider, useAuth } from './AuthContext';
 import { TranslationProvider, useTranslation } from './TranslationContext';
-import { BANGnLADESH_DISTRICTS } from './constants';
-import { supabase } from './supakbaseClient';
-import { supabaseServkice } from './services/supabaseService';
+import { BANGLADESH_DISTRICTS } from './constants';
+import { supabase } from './supabaseClient';
+import { supabaseService } from './services/supabaseService';
 import React, { useState, useEffect } from 'react';
-import { Search, User, LogOut, Menu, X, Tickmet as TicketIcon, MessageSquare, Shield, PlusCircle } from 'lucide-react';
-import { motikon, AnimatePresence } from 'motion/react';
+import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -208,7 +208,7 @@ const SellTicket = () => {
         Object.entries(formData).forEach(([key, val]) => data.append(key, val as string));
         if (image) data.append('ticket_image', image);
 
-        const res = await fetch('/api/tickets', {
+        const res = await fetch('/api/listings', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: data,
@@ -224,7 +224,7 @@ const SellTicket = () => {
         if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
       } catch (e) {
         console.log("Backend failed, using Supabase directly...");
-        await supabaseService.createTicket(formData, user!.id);
+        await supabaseService.createListing(formData, user!.id);
       }
       navigate('/dashboard');
     } catch (e: any) {
@@ -416,7 +416,7 @@ const Home = () => {
       let data;
       try {
         const params = new URLSearchParams(search);
-        const res = await fetch(`/api/tickets?${params}`);
+        const res = await fetch(`/api/listings?${params}`);
         if (res.ok) {
           data = await res.json();
         } else {
@@ -424,7 +424,7 @@ const Home = () => {
         }
       } catch (e) {
         console.log("Backend not found, using Supabase directly...");
-        data = await supabaseService.getTickets(search);
+        data = await supabaseService.getListings(search);
       }
       setTickets(data);
     } catch (e: any) {
@@ -598,13 +598,13 @@ const Home = () => {
               <div className="flex items-center justify-between pt-6 border-t border-gray-50">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-black text-sm">
-                    {ticket.seller?.name[0]}
+                    {ticket.user?.name[0]}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{ticket.seller?.name}</p>
+                    <p className="text-sm font-bold text-gray-900">{ticket.user?.name}</p>
                     <div className="flex items-center gap-1">
                       <Shield className="w-3 h-3 text-emerald-500" />
-                      <p className="text-[10px] text-gray-400 font-medium">Rating: {ticket.seller?.rating}/5</p>
+                      <p className="text-[10px] text-gray-400 font-medium">Rating: {ticket.user?.rating}/5</p>
                     </div>
                   </div>
                 </div>
@@ -633,6 +633,7 @@ const Home = () => {
 
 const TicketDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user, token } = useAuth();
   const [ticket, setTicket] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -655,7 +656,7 @@ const TicketDetails = () => {
     try {
       let data;
       try {
-        const res = await fetch(`/api/tickets/${id}`);
+        const res = await fetch(`/api/listings/${id}`);
         if (res.ok) {
           data = await res.json();
         } else {
@@ -663,13 +664,35 @@ const TicketDetails = () => {
         }
       } catch (e) {
         console.log("Backend not found, using Supabase directly...");
-        data = await supabaseService.getTicketById(id!);
+        data = await supabaseService.getListingById(id!);
       }
       setTicket(data);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePurchase = async () => {
+    if (!user) return navigate('/login');
+    if (!window.confirm('Confirm purchase?')) return;
+
+    try {
+      // In a real app, this would be a transaction
+      await supabaseService.updateListingStatus(id!, 'sold');
+      await supabase.from('transactions').insert([{
+        buyer_id: user.id,
+        seller_id: ticket.user_id,
+        ticket_id: id,
+        payment_method: 'bkash',
+        transaction_id: 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        status: 'completed'
+      }]);
+      alert('Purchase successful!');
+      fetchTicket();
+    } catch (e: any) {
+      alert(e.message);
     }
   };
 
@@ -730,7 +753,7 @@ const TicketDetails = () => {
   if (loading) return <div className="p-20 text-center">Loading...</div>;
   if (!ticket) return <div className="p-20 text-center">Ticket not found</div>;
 
-  const isSeller = user?.id === ticket.seller_id;
+  const isSeller = user?.id === ticket.user_id;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -738,8 +761,13 @@ const TicketDetails = () => {
         <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md uppercase mb-2 inline-block">
-                {ticket.transport_type}
+              <span className={cn(
+                "text-[10px] font-bold px-3 py-1 rounded-full uppercase mb-2 inline-block",
+                ticket.status === 'pending' ? "bg-amber-100 text-amber-600" :
+                ticket.status === 'available' ? "bg-emerald-100 text-emerald-600" :
+                "bg-gray-100 text-gray-600"
+              )}>
+                {ticket.status}
               </span>
               <h1 className="text-3xl font-bold text-gray-900">{ticket.operator_name}</h1>
               <p className="text-gray-500">{ticket.from_location} → {ticket.to_location}</p>
@@ -760,14 +788,26 @@ const TicketDetails = () => {
               <p className="font-bold text-gray-900">{ticket.seat_number}</p>
             </div>
             <div className="bg-gray-50 rounded-2xl p-4">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Purchase Date</p>
-              <p className="font-bold text-gray-900">{new Date(ticket.ticket_purchase_date).toLocaleDateString()}</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Created At</p>
+              <p className="font-bold text-gray-900">{new Date(ticket.created_at).toLocaleDateString()}</p>
             </div>
             <div className="bg-gray-50 rounded-2xl p-4">
               <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Status</p>
-              <p className="font-bold text-emerald-600 uppercase text-sm">{ticket.status}</p>
+              <p className={cn(
+                "font-bold uppercase text-sm",
+                ticket.status === 'sold' ? "text-red-500" : "text-emerald-600"
+              )}>{ticket.status}</p>
             </div>
           </div>
+
+          {ticket.status === 'available' && !isSeller && (
+            <button 
+              onClick={handlePurchase}
+              className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 mb-8"
+            >
+              Buy This Ticket Now
+            </button>
+          )}
 
           <div className="space-y-4">
             <h3 className="font-bold text-gray-900">Ticket Image Verification</h3>
@@ -796,13 +836,13 @@ const TicketDetails = () => {
         <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold text-2xl">
-              {ticket.seller?.name[0]}
+              {ticket.user?.name[0]}
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{ticket.seller?.name}</h3>
+              <h3 className="text-xl font-bold text-gray-900">{ticket.user?.name}</h3>
               <div className="flex items-center gap-2">
                 <span className="text-yellow-400">★★★★★</span>
-                <span className="text-sm text-gray-400">Seller Rating: {ticket.seller?.rating}/5</span>
+                <span className="text-sm text-gray-400">Seller Rating: {ticket.user?.rating}/5</span>
               </div>
             </div>
           </div>
@@ -1088,8 +1128,8 @@ const UserDashboard = () => {
         } catch (e) {
           console.log("Backend failed, using Supabase directly for dashboard...");
           // Fallback: Fetch listings and purchases from Supabase
-          const { data: listings } = await supabase.from('tickets').select('*').eq('seller_id', user.id);
-          const { data: purchases } = await supabase.from('transactions').select('*, ticket:tickets(*)').eq('buyer_id', user.id);
+          const { data: listings } = await supabase.from('listings').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+          const { data: purchases } = await supabase.from('transactions').select('*, ticket:listings(*)').eq('buyer_id', user.id);
           setData({ listings: listings || [], purchases: purchases || [] });
         } finally {
           setLoading(false);
@@ -1120,6 +1160,16 @@ const UserDashboard = () => {
                   <div>
                     <p className="font-bold text-gray-900">{ticket.operator_name}</p>
                     <p className="text-xs text-gray-400">{ticket.from_location} → {ticket.to_location}</p>
+                    <div className="mt-1">
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
+                        ticket.status === 'pending' ? "bg-amber-100 text-amber-600" :
+                        ticket.status === 'available' ? "bg-emerald-100 text-emerald-600" :
+                        "bg-gray-100 text-gray-600"
+                      )}>
+                        {ticket.status}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-emerald-600">৳{ticket.asking_price}</p>
@@ -1163,7 +1213,7 @@ const UserDashboard = () => {
 const AdminDashboard = () => {
   const { user, token } = useAuth();
   const [users, setUsers] = useState([]);
-  const [tickets, setTickets] = useState([]);
+  const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -1173,38 +1223,34 @@ const AdminDashboard = () => {
         const text = await res.text();
         try { return JSON.parse(text); } catch (e) { return []; }
       }),
-      fetch('/api/tickets', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
+      fetch('/api/listings', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
         const text = await res.text();
         try { return JSON.parse(text); } catch (e) { return []; }
       })
     ]).then(([u, t]) => {
       setUsers(u);
-      setTickets(t);
+      setListings(t);
       setLoading(false);
     });
   }, [user]);
 
   const handleAction = async (id: string, action: 'approve' | 'delete') => {
     const method = action === 'approve' ? 'POST' : 'DELETE';
-    const url = `/api/admin/tickets/${id}${action === 'approve' ? '/approve' : ''}`;
+    const url = `/api/admin/listings/${id}${action === 'approve' ? '/approve' : ''}`;
     try {
       const res = await fetch(url, { method, headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) {
-        const text = await res.text();
-        let errorData;
-        try { errorData = JSON.parse(text); } catch (e) { errorData = { error: 'Unknown error' }; }
-        alert(errorData.error || `Failed to ${action} ticket`);
-        return;
+        // Fallback to direct Supabase update for approval
+        if (action === 'approve') {
+          await supabaseService.updateListingStatus(id, 'available');
+        } else {
+          await supabase.from('listings').delete().eq('id', id);
+        }
       }
       
       // Refresh
-      const refreshRes = await fetch('/api/tickets');
-      const refreshText = await refreshRes.text();
-      try {
-        setTickets(JSON.parse(refreshText));
-      } catch (e) {
-        setTickets([]);
-      }
+      const data = await supabaseService.getListings({});
+      setListings(data);
     } catch (e: any) {
       alert(e.message);
     }
@@ -1224,8 +1270,8 @@ const AdminDashboard = () => {
           <p className="text-4xl font-bold text-gray-900">{users.length}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-sm font-bold text-gray-400 uppercase mb-1">Active Tickets</p>
-          <p className="text-4xl font-bold text-gray-900">{tickets.length}</p>
+          <p className="text-sm font-bold text-gray-400 uppercase mb-1">Active Listings</p>
+          <p className="text-4xl font-bold text-gray-900">{listings.length}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-sm font-bold text-gray-400 uppercase mb-1">Reports</p>
@@ -1234,6 +1280,59 @@ const AdminDashboard = () => {
       </div>
 
       <div className="space-y-8">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 className="font-bold text-gray-900">Listing Management</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  <th className="px-6 py-4">Operator</th>
+                  <th className="px-6 py-4">Route</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {listings.map((listing: any) => (
+                  <tr key={listing.id} className="text-sm">
+                    <td className="px-6 py-4 font-bold text-gray-900">{listing.operator_name}</td>
+                    <td className="px-6 py-4 text-gray-500">{listing.from_location} → {listing.to_location}</td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
+                        listing.status === 'pending' ? "bg-amber-100 text-amber-600" :
+                        listing.status === 'available' ? "bg-emerald-100 text-emerald-600" :
+                        "bg-gray-100 text-gray-600"
+                      )}>
+                        {listing.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        {listing.status === 'pending' && (
+                          <button 
+                            onClick={() => handleAction(listing.id, 'approve')}
+                            className="text-emerald-600 font-bold hover:underline"
+                          >
+                            Approve
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleAction(listing.id, 'delete')}
+                          className="text-red-500 font-bold hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
             <h2 className="font-bold text-gray-900">User Management</h2>
@@ -1270,42 +1369,6 @@ const AdminDashboard = () => {
             </table>
           </div>
         </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-            <h2 className="font-bold text-gray-900">Ticket Listings</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                  <th className="px-6 py-4">Operator</th>
-                  <th className="px-6 py-4">Route</th>
-                  <th className="px-6 py-4">Price</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {tickets.map((t: any) => (
-                  <tr key={t.id} className="text-sm text-gray-700 hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium">{t.operator_name}</td>
-                    <td className="px-6 py-4">{t.from_location} → {t.to_location}</td>
-                    <td className="px-6 py-4">৳{t.asking_price}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[10px] font-bold uppercase">
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 flex gap-4">
-                      <button onClick={() => handleAction(t.id, 'delete')} className="text-red-500 font-bold hover:underline">Remove</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -1327,10 +1390,14 @@ const Contact = () => {
             >
               <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-100 group-hover:border-emerald-200 transition-colors">
                 <img 
-                  src="https://unavatar.io/facebook/aiuohall.ratul" 
+                  src="https://unavatar.io/facebook/aiuohall.ratul.7?fallback=https://picsum.photos/seed/ratul/100/100" 
                   alt="Aiuohall Ratul" 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = "https://picsum.photos/seed/ratul/100/100";
+                  }}
                 />
               </div>
               <div>
@@ -1346,10 +1413,14 @@ const Contact = () => {
             >
               <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-100 group-hover:border-emerald-200 transition-colors">
                 <img 
-                  src="https://unavatar.io/facebook/100039819497387" 
+                  src="https://unavatar.io/facebook/redwanrashid.nice.9?fallback=https://picsum.photos/seed/redwan/100/100" 
                   alt="Redwan Nice" 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = "https://picsum.photos/seed/redwan/100/100";
+                  }}
                 />
               </div>
               <div>
