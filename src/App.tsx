@@ -1332,14 +1332,14 @@ const Contact = () => {
               </div>
             </a>
             <a 
-              href="https://www.facebook.com/developer.partner" 
+              href="https://www.facebook.com/share/1HgKoa8iy4/" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-emerald-50 transition-colors group"
             >
-              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">DP</div>
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">RN</div>
               <div>
-                <p className="font-bold text-gray-900 group-hover:text-emerald-600">Dev Partner</p>
+                <p className="font-bold text-gray-900 group-hover:text-emerald-600">Redwan Nice</p>
                 <p className="text-xs text-gray-500">Facebook Profile</p>
               </div>
             </a>
