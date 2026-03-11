@@ -1,12 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useNavigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './AuthContext';
+import { AuthProvider, useAuth } from './AuthCointext';
 import { TranslationProvider, useTranslation } from './TranslationContext';
-import { BANGLADESH_DISTRICTS } from './constants';
-import { supabase } from './supabaseClient';
-import { supabaseService } from './services/supabaseService';
+import { BANGnLADESH_DISTRICTS } from './constants';
+import { supabase } from './supakbaseClient';
+import { supabaseServkice } from './services/supabaseService';
 import React, { useState, useEffect } from 'react';
-import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Search, User, LogOut, Menu, X, Tickmet as TicketIcon, MessageSquare, Shield, PlusCircle } from 'lucide-react';
+import { motikon, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
