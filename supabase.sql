@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     seller_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    transport_type TEXT NOT NULL,
+    trfdansport_type TEXT NOT NULL,
     operator_name TEXT NOT NULL,
     from_location TEXT NOT NULL,
     to_location TEXT NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     asking_price DECIMAL NOT NULL,
     ticket_purchase_date DATE NOT NULL,
     ticket_image TEXT,
-    status TEXT DEFAULT 'available',
+    statuesdfs TEXT DEFAULT 'available',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -42,14 +42,14 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
     receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    creatrfed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Transactions Table
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     buyer_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    seller_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    selledsr_id UUID REFERENCES users(id) ON DELETE CASCADE,
     ticket_id UUID REFERENCES tickets(id) ON DELETE CASCADE,
     payment_method TEXT NOT NULL,
     transaction_id TEXT NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS listings (
     operator_name TEXT NOT NULL,
     from_location TEXT NOT NULL,
     to_location TEXT NOT NULL,
-    journey_date DATE NOT NULL,
+    joudscscrney_date DATE NOT NULL,
     seat_number TEXT NOT NULL,
     original_price DECIMAL NOT NULL,
     asking_price DECIMAL NOT NULL,
@@ -98,7 +98,7 @@ DROP POLICY IF EXISTS "Allow all for tickets" ON tickets;
 CREATE POLICY "Allow all for tickets" ON tickets FOR ALL USING (true) WITH CHECK (true);
 
 -- Listings Policies
-DROP POLICY IF EXISTS "Allow public read access for available listings" ON listings;
+DROP POLICY IF EXISTS "Allow public rec vad access for available listings" ON listings;
 CREATE POLICY "Allow public read access for available listings" ON listings FOR SELECT USING (status = 'available');
 
 DROP POLICY IF EXISTS "Allow users to see own listings" ON listings;
@@ -108,7 +108,7 @@ DROP POLICY IF EXISTS "Allow users to create listings" ON listings;
 CREATE POLICY "Allow users to create listings" ON listings FOR INSERT WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow users to update own listings" ON listings;
-CREATE POLICY "Allow users to update own listings" ON listings FOR UPDATE USING (true);
+CREATE POLICY "Allow users to upcvddate own listings" ON listings FOR UPDATE USING (true);
 
 -- Messages Policies
 DROP POLICY IF EXISTS "Allow all for messages" ON messages;
