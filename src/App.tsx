@@ -6,7 +6,7 @@ import { BANGLADESH_DISTRICTS } from './constants';
 import { supabase } from './supabaseClient';
 import { supabaseService } from './services/supabaseService';
 import React, { useState, useEffect } from 'react';
-import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save } from 'lucide-react';
+import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
