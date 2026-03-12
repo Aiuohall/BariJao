@@ -39,6 +39,24 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Test Supabase Connection
+async function testSupabase() {
+  try {
+    const { data, error } = await supabase.from("users").select("count", { count: "exact", head: true });
+    if (error) {
+      console.error("Supabase connection error:", error.message);
+      if (error.code === 'PGRST116') {
+        console.log("Note: 'users' table might be empty or missing.");
+      }
+    } else {
+      console.log("Supabase connection successful. Found users count:", data);
+    }
+  } catch (e) {
+    console.error("Failed to connect to Supabase:", e);
+  }
+}
+testSupabase();
+
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
 
 app.use(cors());
@@ -137,7 +155,12 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
     .eq("email", email)
     .single();
 
-  if (error || !user) return res.status(401).json({ error: "Invalid credentials" });
+  if (error) {
+    console.error("Login DB error:", error);
+    return res.status(401).json({ error: "Invalid credentials", details: error.message });
+  }
+  
+  if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) return res.status(401).json({ error: "Invalid credentials" });

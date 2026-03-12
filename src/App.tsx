@@ -26,6 +26,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const ServerStatus = () => {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline' | 'supabase'>('checking');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const check = async () => {
@@ -35,21 +36,25 @@ const ServerStatus = () => {
           const data = await res.json();
           if (data.status === 'ok') {
             setStatus('online');
+            setErrorMsg('');
             return;
           }
         }
-        throw new Error('Backend offline');
-      } catch (e) {
+        throw new Error(`Backend: ${res.status}`);
+      } catch (e: any) {
         // Fallback: Check Supabase
         try {
           const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
           if (!error) {
             setStatus('supabase');
+            setErrorMsg('');
           } else {
             setStatus('offline');
+            setErrorMsg(error.message);
           }
-        } catch (err) {
+        } catch (err: any) {
           setStatus('offline');
+          setErrorMsg(err.message);
         }
       }
     };
