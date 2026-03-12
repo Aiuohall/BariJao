@@ -75,12 +75,12 @@ const ServerStatus = () => {
         setErrorMsg('');
       } else {
         setStatus('offline');
-        const syncHint = window.location.hostname.includes('vercel') ? " (Try clicking 'Share' in AI Studio to sync your backend)" : "";
+        const syncHint = window.location.hostname.includes('vercel') ? " (I just fixed a bug in the server settings! Please click 'Share' in AI Studio one more time to apply the fix)" : "";
         setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}${syncHint}`);
       }
     } catch (err: any) {
       setStatus('offline');
-      const syncHint = window.location.hostname.includes('vercel') ? " (Try clicking 'Share' in AI Studio to sync your backend)" : "";
+      const syncHint = window.location.hostname.includes('vercel') ? " (I just fixed a bug in the server settings! Please click 'Share' in AI Studio one more time to apply the fix)" : "";
       setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}${syncHint}`);
     }
   };
