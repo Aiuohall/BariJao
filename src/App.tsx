@@ -277,7 +277,7 @@ const SellTicket = () => {
         Object.entries(formData).forEach(([key, val]) => data.append(key, val as string));
         if (image) data.append('ticket_image', image);
 
-        const res = await fetch('/api/listings', {
+        const res = await fetch('/api/tickets', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: data,
@@ -293,7 +293,7 @@ const SellTicket = () => {
         if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
       } catch (e) {
         console.log("Backend failed, using Supabase directly...");
-        await supabaseService.createListing(formData, user!.id);
+        await supabaseService.createTicket(formData, user!.id);
       }
       navigate('/dashboard');
     } catch (e: any) {
@@ -485,7 +485,7 @@ const Home = () => {
       let data;
       try {
         const params = new URLSearchParams(search);
-        const res = await fetch(`/api/listings?${params}`);
+        const res = await fetch(`/api/tickets?${params}`);
         if (res.ok) {
           data = await res.json();
         } else {
@@ -493,7 +493,7 @@ const Home = () => {
         }
       } catch (e) {
         console.log("Backend not found, using Supabase directly...");
-        data = await supabaseService.getListings(search);
+        data = await supabaseService.getTickets(search);
       }
       setTickets(data);
     } catch (e: any) {
@@ -725,7 +725,7 @@ const TicketDetails = () => {
     try {
       let data;
       try {
-        const res = await fetch(`/api/listings/${id}`);
+        const res = await fetch(`/api/tickets/${id}`);
         if (res.ok) {
           data = await res.json();
         } else {
@@ -733,7 +733,7 @@ const TicketDetails = () => {
         }
       } catch (e) {
         console.log("Backend not found, using Supabase directly...");
-        data = await supabaseService.getListingById(id!);
+        data = await supabaseService.getTicketById(id!);
       }
       setTicket(data);
     } catch (e) {
@@ -749,7 +749,7 @@ const TicketDetails = () => {
 
     try {
       // In a real app, this would be a transaction
-      await supabaseService.updateListingStatus(id!, 'sold');
+      await supabaseService.updateTicketStatus(id!, 'sold');
       await supabase.from('transactions').insert([{
         buyer_id: user.id,
         seller_id: ticket.user_id,
@@ -1340,8 +1340,8 @@ const UserDashboard = () => {
         } catch (e) {
           console.log("Backend failed, using Supabase directly for dashboard...");
           // Fallback: Fetch listings and purchases from Supabase
-          const { data: listings } = await supabase.from('listings').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-          const { data: purchases } = await supabase.from('transactions').select('*, ticket:listings(*)').eq('buyer_id', user.id);
+          const { data: listings } = await supabase.from('tickets').select('*').eq('seller_id', user.id).order('created_at', { ascending: false });
+          const { data: purchases } = await supabase.from('transactions').select('*, ticket:tickets(*)').eq('buyer_id', user.id);
           setData({ listings: listings || [], purchases: purchases || [] });
         } finally {
           setLoading(false);
