@@ -1393,7 +1393,7 @@ const AdminDashboard = () => {
         const text = await res.text();
         try { return JSON.parse(text); } catch (e) { return []; }
       }),
-      fetch('/api/listings', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
+      fetch('/api/tickets', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
         const text = await res.text();
         try { return JSON.parse(text); } catch (e) { return []; }
       })
@@ -1406,21 +1406,21 @@ const AdminDashboard = () => {
 
   const handleAction = async (id: string, action: 'approve' | 'delete') => {
     const method = action === 'approve' ? 'POST' : 'DELETE';
-    const url = `/api/admin/listings/${id}${action === 'approve' ? '/approve' : ''}`;
+    const url = `/api/admin/tickets/${id}${action === 'approve' ? '/approve' : ''}`;
     try {
       const res = await fetch(url, { method, headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) {
         // Fallback to direct Supabase update for approval
         if (action === 'approve') {
-          await supabaseService.updateListingStatus(id, 'available');
+          await supabase.from('tickets').update({ status: 'available' }).eq('id', id);
         } else {
-          await supabase.from('listings').delete().eq('id', id);
+          await supabase.from('tickets').delete().eq('id', id);
         }
       }
       
       // Refresh
-      const data = await supabaseService.getListings({});
-      setListings(data);
+      const { data } = await supabase.from('tickets').select('*');
+      setListings(data || []);
     } catch (e: any) {
       alert(e.message);
     }
