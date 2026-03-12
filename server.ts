@@ -26,6 +26,17 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = 3000;
 
+// --- Health Checks (Top Level - MUST BE FIRST) ---
+app.get("/health", (req, res) => {
+  res.set("X-Backend-Type", "express");
+  res.json({ status: "ok", mode: "root", time: new Date().toISOString() });
+});
+
+app.get("/api/health", (req, res) => {
+  res.set("X-Backend-Type", "express");
+  res.json({ status: "ok", mode: "api", time: new Date().toISOString() });
+});
+
 // Request Logging - VERY EARLY
 app.use((req, res, next) => {
   console.log(`[REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url}`);
@@ -84,17 +95,6 @@ const loginLimiter = rateLimit({
   handler: (req, res) => {
     res.status(429).json({ error: "Too many login attempts, please try again later." });
   },
-});
-
-// --- Health Checks (Top Level) ---
-app.get("/health", (req, res) => {
-  console.log(`[HEALTH] Root check from ${req.ip}`);
-  res.json({ status: "ok", mode: "root", time: new Date().toISOString() });
-});
-
-app.get("/api/health", (req, res) => {
-  console.log(`[HEALTH] API check from ${req.ip}`);
-  res.json({ status: "ok", mode: "api", time: new Date().toISOString() });
 });
 
 // Districts Data

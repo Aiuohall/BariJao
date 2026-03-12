@@ -75,12 +75,12 @@ const ServerStatus = () => {
         setErrorMsg('');
       } else {
         setStatus('offline');
-        const syncHint = window.location.hostname.includes('vercel') ? " (I just fixed a bug in the server settings! Please click 'Share' in AI Studio one more time to apply the fix)" : "";
+        const syncHint = window.location.hostname.includes('vercel') ? " (I've updated the server. Please click 'Share' in AI Studio. When it says 'Copy link', it means the update is DONE! Then refresh this page.)" : "";
         setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}${syncHint}`);
       }
     } catch (err: any) {
       setStatus('offline');
-      const syncHint = window.location.hostname.includes('vercel') ? " (I just fixed a bug in the server settings! Please click 'Share' in AI Studio one more time to apply the fix)" : "";
+      const syncHint = window.location.hostname.includes('vercel') ? " (I've updated the server. Please click 'Share' in AI Studio. When it says 'Copy link', it means the update is DONE! Then refresh this page.)" : "";
       setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}${syncHint}`);
     }
   };
