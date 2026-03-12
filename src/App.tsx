@@ -31,6 +31,9 @@ const ServerStatus = () => {
 
   const check = async () => {
     setStatus('checking');
+    let backendErr = '';
+    
+    // Try /api/health first
     try {
       const res = await fetch('/api/health');
       if (res.ok) {
@@ -41,23 +44,40 @@ const ServerStatus = () => {
           return;
         }
       }
-      throw new Error(`Backend: ${res.status} ${res.statusText}`);
+      backendErr = `API: ${res.status}`;
     } catch (e: any) {
-      const backendErr = e.message;
-      // Fallback: Check Supabase
-      try {
-        const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
-        if (!error) {
-          setStatus('supabase');
-          setErrorMsg('');
-        } else {
-          setStatus('offline');
-          setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}`);
+      backendErr = `API: ${e.message}`;
+    }
+
+    // Try /health (root) as fallback
+    try {
+      const res = await fetch('/health');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'ok') {
+          setStatus('online');
+          setErrorMsg('Online (Root Mode)');
+          return;
         }
-      } catch (err: any) {
-        setStatus('offline');
-        setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}`);
       }
+      backendErr += ` | Root: ${res.status}`;
+    } catch (e: any) {
+      backendErr += ` | Root: ${e.message}`;
+    }
+
+    // Fallback: Check Supabase
+    try {
+      const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+      if (!error) {
+        setStatus('supabase');
+        setErrorMsg('');
+      } else {
+        setStatus('offline');
+        setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}`);
+      }
+    } catch (err: any) {
+      setStatus('offline');
+      setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}`);
     }
   };
 
@@ -1462,7 +1482,7 @@ const AdminDashboard = () => {
           <p className="text-4xl font-bold text-gray-900">{users.length}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-sm font-bold text-gray-400 uppercase mb-1">Active Listings</p>
+          <p className="text-sm font-bold text-gray-400 uppercase mb-1">Active Tickets</p>
           <p className="text-4xl font-bold text-gray-900">{listings.length}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
@@ -1474,7 +1494,7 @@ const AdminDashboard = () => {
       <div className="space-y-8">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-            <h2 className="font-bold text-gray-900">Listing Management</h2>
+            <h2 className="font-bold text-gray-900">Ticket Management</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">

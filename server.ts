@@ -26,6 +26,12 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = 3000;
 
+// Request Logging - VERY EARLY
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Serve uploads folder
 app.use("/uploads", express.static(uploadDir));
 
@@ -111,8 +117,14 @@ const authenticate = (req: any, res: any, next: any) => {
 };
 
 // --- API Routes ---
+app.get("/health", (req, res) => {
+  console.log("Root health check called");
+  res.json({ status: "ok", mode: "root", time: new Date().toISOString() });
+});
+
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", time: new Date().toISOString() });
+  console.log("API health check called");
+  res.json({ status: "ok", mode: "api", time: new Date().toISOString() });
 });
 
 // Districts Autocomplete
@@ -322,7 +334,11 @@ app.delete("/api/admin/tickets/:id", authenticate, async (req: any, res) => {
 
 // API 404 Handler
 app.use("/api/*", (req, res) => {
-  res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  console.log(`404 on API: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    error: `API route not found: ${req.method} ${req.originalUrl}`,
+    suggestion: "Check if the route is defined in server.ts and if the proxy/rewrite is correct."
+  });
 });
 
 // Global Error Handler
