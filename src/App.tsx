@@ -64,18 +64,35 @@ const ServerStatus = () => {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-100 shadow-sm">
+    <div className="flex flex-col items-end">
       <div className={cn(
-        "w-2.5 h-2.5 rounded-full animate-pulse",
-        status === 'online' ? "bg-emerald-500" : 
-        status === 'supabase' ? "bg-blue-500" :
-        status === 'offline' ? "bg-red-500" : "bg-amber-500"
-      )} />
-      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">
-        {status === 'online' ? 'System Online' : 
-         status === 'supabase' ? 'Supabase Direct' :
-         status === 'offline' ? 'System Offline' : 'Connecting...'}
-      </span>
+        "flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border shadow-sm transition-all",
+        status === 'online' ? "border-emerald-100" : 
+        status === 'supabase' ? "border-blue-100" :
+        "border-red-200 bg-red-50"
+      )}>
+        <div className={cn(
+          "w-2.5 h-2.5 rounded-full animate-pulse",
+          status === 'online' ? "bg-emerald-500" : 
+          status === 'supabase' ? "bg-blue-500" :
+          "bg-red-500"
+        )} />
+        <span className={cn(
+          "text-[11px] font-bold uppercase tracking-wider",
+          status === 'online' ? "text-emerald-600" : 
+          status === 'supabase' ? "text-blue-600" :
+          "text-red-600"
+        )}>
+          {status === 'online' ? 'System Online' : 
+           status === 'supabase' ? 'Supabase Direct' :
+           status === 'offline' ? 'System Offline' : 'Connecting...'}
+        </span>
+      </div>
+      {status === 'offline' && errorMsg && (
+        <span className="text-[8px] text-red-400 mt-1 max-w-[150px] truncate" title={errorMsg}>
+          {errorMsg}
+        </span>
+      )}
     </div>
   );
 };
@@ -1093,25 +1110,20 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      const text = await res.text();
       let data;
       try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        
-        const text = await res.text();
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          throw new Error('Invalid JSON');
-        }
-        if (!res.ok) throw new Error(data.error || 'Login failed');
+        data = JSON.parse(text);
       } catch (e) {
-        console.log("Backend login failed, trying Supabase directly...");
-        data = await supabaseService.login(email, password);
+        throw new Error('Server returned invalid response');
       }
+      if (!res.ok) throw new Error(data.error || 'Login failed');
       
       login(data.token, data.user);
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
@@ -1182,25 +1194,20 @@ const Register = () => {
     setError('');
     setLoading(true);
     try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      
+      const text = await res.text();
+      let data;
       try {
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
-        
-        const text = await res.text();
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          throw new Error('Invalid JSON');
-        }
-        if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
+        data = JSON.parse(text);
       } catch (e) {
-        console.log("Backend registration failed, trying Supabase directly...");
-        await supabaseService.register(formData);
+        throw new Error('Server returned invalid response');
       }
+      if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
       
       navigate('/login');
     } catch (e: any) {
