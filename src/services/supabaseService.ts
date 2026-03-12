@@ -135,5 +135,17 @@ export const supabaseService = {
     
     if (error) throw error;
     return data;
+  },
+
+  async updateUser(userId: string, updates: any) {
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
   }
 };

@@ -6,7 +6,7 @@ import { BANGLADESH_DISTRICTS } from './constants';
 import { supabase } from './supabaseClient';
 import { supabaseService } from './services/supabaseService';
 import React, { useState, useEffect } from 'react';
-import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle } from 'lucide-react';
+import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,6 +16,13 @@ function cn(...inputs: ClassValue[]) {
 }
 
 // --- Components ---
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (!user) return <Navigate to="/login" />;
+  return <>{children}</>;
+};
 
 const ServerStatus = () => {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline' | 'supabase'>('checking');
@@ -101,6 +108,9 @@ const Navbar = () => {
               <>
                 <Link to="/sell" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.sell}</Link>
                 <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.dashboard}</Link>
+                <Link to="/profile" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-1">
+                  <User className="w-4 h-4" /> Profile
+                </Link>
                 {user.role === 'admin' && (
                   <Link to="/admin" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-1">
                     <Shield className="w-4 h-4" /> {t.admin}
@@ -150,6 +160,7 @@ const Navbar = () => {
                 <>
                   <Link to="/sell" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.sell}</Link>
                   <Link to="/dashboard" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.dashboard}</Link>
+              <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>Profile</Link>
                   {user.role === 'admin' && (
                     <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.admin}</Link>
                   )}
@@ -909,6 +920,159 @@ const TicketDetails = () => {
   );
 };
 
+const Profile = () => {
+  const { user, login } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const updates: any = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone
+      };
+      if (formData.password) {
+        updates.password_hash = formData.password;
+      }
+
+      const updatedUser = await supabaseService.updateUser(user!.id, updates);
+      
+      // Update local state
+      const token = localStorage.getItem('token') || '';
+      login(token, updatedUser);
+      
+      setIsEditing(false);
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-emerald-600 h-32 relative">
+          <div className="absolute -bottom-12 left-8">
+            <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center border-4 border-white">
+              <User className="w-12 h-12 text-emerald-600" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="pt-16 pb-8 px-8">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{user?.name}</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center text-amber-500">
+                  <Star className="w-4 h-4 fill-current" />
+                  <span className="ml-1 font-bold">{user?.rating}</span>
+                </div>
+                <span className="text-gray-400 text-sm">•</span>
+                <span className="text-gray-500 text-sm uppercase font-bold tracking-wider">{user?.role} Account</span>
+              </div>
+            </div>
+            <button 
+              onClick={() => setIsEditing(!isEditing)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-bold text-gray-700"
+            >
+              {isEditing ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
+              {isEditing ? 'Cancel' : 'Edit Profile'}
+            </button>
+          </div>
+
+          {message.text && (
+            <div className={`p-4 rounded-2xl mb-6 text-sm font-medium ${
+              message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
+            }`}>
+              {message.text}
+            </div>
+          )}
+
+          <form onSubmit={handleUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <User className="w-4 h-4 text-gray-400" /> Full Name
+              </label>
+              <input 
+                type="text"
+                disabled={!isEditing}
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <Mail className="w-4 h-4 text-gray-400" /> Email Address
+              </label>
+              <input 
+                type="email"
+                disabled={!isEditing}
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <Phone className="w-4 h-4 text-gray-400" /> Phone Number
+              </label>
+              <input 
+                type="tel"
+                disabled={!isEditing}
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-gray-400" /> New Password (Optional)
+              </label>
+              <input 
+                type="password"
+                disabled={!isEditing}
+                placeholder={isEditing ? "Enter new password" : "••••••••"}
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 transition-all"
+              />
+            </div>
+
+            {isEditing && (
+              <div className="md:col-span-2 flex justify-end mt-4">
+                <button 
+                  disabled={loading}
+                  className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : <><Save className="w-4 h-4" /> Save Changes</>}
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Login = () => {
   const { user, login } = useAuth();
   const [email, setEmail] = useState('');
@@ -1493,9 +1657,10 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/dashboard" element={<UserDashboard />} />
-                <Route path="/sell" element={<SellTicket />} />
+                <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/sell" element={<ProtectedRoute><SellTicket /></ProtectedRoute>} />
                 <Route path="/ticket/:id" element={<TicketDetails />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
