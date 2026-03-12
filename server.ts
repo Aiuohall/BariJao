@@ -86,6 +86,17 @@ const loginLimiter = rateLimit({
   },
 });
 
+// --- Health Checks (Top Level) ---
+app.get("/health", (req, res) => {
+  console.log(`[HEALTH] Root check from ${req.ip}`);
+  res.json({ status: "ok", mode: "root", time: new Date().toISOString() });
+});
+
+app.get("/api/health", (req, res) => {
+  console.log(`[HEALTH] API check from ${req.ip}`);
+  res.json({ status: "ok", mode: "api", time: new Date().toISOString() });
+});
+
 // Districts Data
 const districts = [
   "Bagerhat", "Bandarban", "Barguna", "Barishal", "Bhola", "Bogra", "Brahmanbaria", "Chandpur", "Chapai Nawabganj", "Chattogram", "Chuadanga", "Cumilla", "Cox's Bazar", "Dhaka", "Dinajpur", "Faridpur", "Feni", "Gaibandha", "Gazipur", "Gopalganj", "Habiganj", "Jamalpur", "Jashore", "Jhalokati", "Jhenaidah", "Joypurhat", "Khagrachhari", "Khulna", "Kishoreganj", "Kurigram", "Kushtia", "Lakshmipur", "Lalmonirhat", "Madaripur", "Magura", "Manikganj", "Meherpur", "Moulvibazar", "Munshiganj", "Mymensingh", "Naogaon", "Narail", "Narayanganj", "Narsingdi", "Natore", "Netrokona", "Nilphamari", "Noakhali", "Pabna", "Panchagarh", "Patuakhali", "Pirojpur", "Rajbari", "Rajshahi", "Rangamati", "Rangpur", "Satkhira", "Shariatpur", "Sherpur", "Sirajganj", "Sunamganj", "Sylhet", "Tangail", "Thakurgaon"
@@ -116,16 +127,48 @@ const authenticate = (req: any, res: any, next: any) => {
   }
 };
 
-// --- API Routes ---
-app.get("/health", (req, res) => {
-  console.log("Root health check called");
-  res.json({ status: "ok", mode: "root", time: new Date().toISOString() });
+// --- Legacy Routes (for backward compatibility) ---
+app.get("/api/listings", async (req, res) => {
+  console.log("Legacy /api/listings called, redirecting to /api/tickets");
+  res.redirect(301, "/api/tickets");
 });
 
-app.get("/api/health", (req, res) => {
-  console.log("API health check called");
-  res.json({ status: "ok", mode: "api", time: new Date().toISOString() });
+app.get("/api/listings/:id", async (req, res) => {
+  console.log(`Legacy /api/listings/${req.params.id} called, redirecting to /api/tickets/${req.params.id}`);
+  res.redirect(301, `/api/tickets/${req.params.id}`);
 });
+
+app.post("/api/listings", authenticate, upload.single("ticket_image"), async (req: any, res) => {
+  console.log("Legacy POST /api/listings called, forwarding to /api/tickets");
+  // Forwarding manually since redirecting POST is tricky
+  const { transport_type, operator_name, from_location, to_location, journey_date, seat_number, original_price, asking_price, ticket_purchase_date } = req.body;
+  const ticket_image = req.file ? `/uploads/${req.file.filename}` : null;
+
+  const { data, error } = await supabase
+    .from("tickets")
+    .insert([{
+      seller_id: req.user.id,
+      transport_type,
+      operator_name,
+      from_location,
+      to_location,
+      journey_date,
+      seat_number,
+      original_price,
+      asking_price,
+      ticket_purchase_date,
+      ticket_image,
+      status: "available"
+    }])
+    .select();
+
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data || data.length === 0) return res.status(500).json({ error: "Failed to create ticket" });
+  res.json(data[0]);
+});
+
+// --- API Routes ---
+// (Health checks moved to top)
 
 // Districts Autocomplete
 app.get("/api/districts", (req, res) => {

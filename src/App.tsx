@@ -36,7 +36,8 @@ const ServerStatus = () => {
     // Try /api/health first
     try {
       const res = await fetch('/api/health');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (data.status === 'ok') {
           setStatus('online');
@@ -44,7 +45,7 @@ const ServerStatus = () => {
           return;
         }
       }
-      backendErr = `API: ${res.status}`;
+      backendErr = `API: ${res.status}${!contentType?.includes('json') ? ' (HTML/Text)' : ''}`;
     } catch (e: any) {
       backendErr = `API: ${e.message}`;
     }
@@ -52,7 +53,8 @@ const ServerStatus = () => {
     // Try /health (root) as fallback
     try {
       const res = await fetch('/health');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (data.status === 'ok') {
           setStatus('online');
@@ -60,7 +62,7 @@ const ServerStatus = () => {
           return;
         }
       }
-      backendErr += ` | Root: ${res.status}`;
+      backendErr += ` | Root: ${res.status}${!contentType?.includes('json') ? ' (HTML/Text)' : ''}`;
     } catch (e: any) {
       backendErr += ` | Root: ${e.message}`;
     }
@@ -73,11 +75,13 @@ const ServerStatus = () => {
         setErrorMsg('');
       } else {
         setStatus('offline');
-        setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}`);
+        const syncHint = window.location.hostname.includes('vercel') ? " (Try clicking 'Share' in AI Studio to sync your backend)" : "";
+        setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}${syncHint}`);
       }
     } catch (err: any) {
       setStatus('offline');
-      setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}`);
+      const syncHint = window.location.hostname.includes('vercel') ? " (Try clicking 'Share' in AI Studio to sync your backend)" : "";
+      setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}${syncHint}`);
     }
   };
 
