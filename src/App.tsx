@@ -27,44 +27,48 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const ServerStatus = () => {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline' | 'supabase'>('checking');
   const [errorMsg, setErrorMsg] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const res = await fetch('/api/health');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status === 'ok') {
-            setStatus('online');
-            setErrorMsg('');
-            return;
-          }
-        }
-        throw new Error(`Backend: ${res.status}`);
-      } catch (e: any) {
-        // Fallback: Check Supabase
-        try {
-          const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
-          if (!error) {
-            setStatus('supabase');
-            setErrorMsg('');
-          } else {
-            setStatus('offline');
-            setErrorMsg(error.message);
-          }
-        } catch (err: any) {
-          setStatus('offline');
-          setErrorMsg(err.message);
+  const check = async () => {
+    setStatus('checking');
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'ok') {
+          setStatus('online');
+          setErrorMsg('');
+          return;
         }
       }
-    };
+      throw new Error(`Backend: ${res.status} ${res.statusText}`);
+    } catch (e: any) {
+      const backendErr = e.message;
+      // Fallback: Check Supabase
+      try {
+        const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+        if (!error) {
+          setStatus('supabase');
+          setErrorMsg('');
+        } else {
+          setStatus('offline');
+          setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}`);
+        }
+      } catch (err: any) {
+        setStatus('offline');
+        setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}`);
+      }
+    }
+  };
+
+  useEffect(() => {
     check();
     const interval = setInterval(check, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [retryCount]);
 
   return (
-    <div className="flex flex-col items-end">
+    <div className="flex flex-col items-end gap-1">
       <div className={cn(
         "flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border shadow-sm transition-all",
         status === 'online' ? "border-emerald-100" : 
@@ -72,26 +76,37 @@ const ServerStatus = () => {
         "border-red-200 bg-red-50"
       )}>
         <div className={cn(
-          "w-2.5 h-2.5 rounded-full animate-pulse",
+          "w-2.5 h-2.5 rounded-full",
+          status === 'checking' ? "bg-amber-400 animate-pulse" :
           status === 'online' ? "bg-emerald-500" : 
           status === 'supabase' ? "bg-blue-500" :
           "bg-red-500"
         )} />
         <span className={cn(
-          "text-[11px] font-bold uppercase tracking-wider",
+          "text-[10px] font-bold uppercase tracking-wider",
           status === 'online' ? "text-emerald-600" : 
           status === 'supabase' ? "text-blue-600" :
+          status === 'checking' ? "text-amber-600" :
           "text-red-600"
         )}>
           {status === 'online' ? 'System Online' : 
            status === 'supabase' ? 'Supabase Direct' :
-           status === 'offline' ? 'System Offline' : 'Connecting...'}
+           status === 'checking' ? 'Checking...' : 'System Offline'}
         </span>
+        {(status === 'offline' || status === 'supabase') && (
+          <button 
+            onClick={() => setRetryCount(prev => prev + 1)}
+            className="ml-1 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
+            title="Retry Connection"
+          >
+            <RefreshCw className={cn("w-3 h-3", status === 'checking' && "animate-spin")} />
+          </button>
+        )}
       </div>
       {status === 'offline' && errorMsg && (
-        <span className="text-[8px] text-red-400 mt-1 max-w-[150px] truncate" title={errorMsg}>
-          {errorMsg}
-        </span>
+        <div className="bg-red-500 text-white text-[9px] px-2 py-1 rounded-md shadow-lg max-w-[250px] break-words animate-bounce">
+          <span className="font-bold">ERROR:</span> {errorMsg}
+        </div>
       )}
     </div>
   );
