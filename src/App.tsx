@@ -1,4 +1,4 @@
-// BariJao v1.0.2 - Ticket Marketplace
+// BariJao v1.0.3 - Ticket Marketplace
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { TranslationProvider, useTranslation } from './TranslationContext';
