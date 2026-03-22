@@ -26,7 +26,7 @@ const initSqlite = () => {
     .replace(/CREATE EXTENSION IF NOT EXISTS "pgcrypto";/g, '')
     .replace(/ALTER TABLE .* ENABLE ROW LEVEL SECURITY;/g, '')
     .replace(/DROP POLICY IF EXISTS .* ON .*;/g, '')
-    .replace(/CREATE POLICY .* ON .* FOR .* USING \(.*\);/g, '')
+    .replace(/CREATE POLICY .* ON .* FOR .* (USING|WITH CHECK) \(.*\)( WITH CHECK \(.*\))?;/g, '')
     .replace(/BOOLEAN DEFAULT false/g, 'INTEGER DEFAULT 0')
     .replace(/BOOLEAN DEFAULT true/g, 'INTEGER DEFAULT 1')
     .replace(/CHECK \(status IN \('pending', 'available', 'sold'\)\)/g, ''); // SQLite check constraints are different but we can skip for now

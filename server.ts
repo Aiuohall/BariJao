@@ -31,6 +31,7 @@ console.log("Environment check:", {
   VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
   SUPABASE_KEY: !!process.env.SUPABASE_KEY,
   GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
+  VITE_GOOGLE_AI_API_KEY: !!process.env.VITE_GOOGLE_AI_API_KEY,
 });
 
 // Gemini Setup
@@ -547,11 +548,13 @@ if (process.env.NODE_ENV !== "production") {
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
+    console.log('Server is running on port 3000');
   });
 } else {
   // In production (Vercel/Cloud Run), the platform handles the port
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
+    console.log('Server is running on port 3000');
   });
 }
 
