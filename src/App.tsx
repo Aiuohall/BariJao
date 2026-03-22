@@ -1071,8 +1071,38 @@ const Login = () => {
         </p>
         
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 mb-6">{error}</div>
+          <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 mb-6">
+            {error}
+            {error.includes('Unexpected token') && (
+              <div className="mt-2 text-[10px] opacity-70">
+                Server might be starting up or returning HTML. Please wait a moment and refresh.
+              </div>
+            )}
+          </div>
         )}
+        
+        <div className="mb-6">
+          <button 
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/admin/bootstrap', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ secret: 'barijao_bootstrap_2026' })
+                });
+                const data = await res.json();
+                if (res.ok) alert('Admin bootstrapped! Email: admin@barijao.com, Pass: adminpassword123');
+                else alert(data.error || 'Bootstrap failed');
+              } catch (e: any) {
+                alert('Bootstrap failed: ' + e.message);
+              }
+            }}
+            className="w-full text-[10px] text-emerald-600 font-bold hover:underline opacity-50"
+          >
+            Bootstrap Admin (Debug)
+          </button>
+        </div>
         
         {!showOTP ? (
           <form onSubmit={handleSubmit} className="space-y-4">

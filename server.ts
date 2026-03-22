@@ -9,7 +9,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
-import { supabase } from "./supabase.js";
+import { supabase } from "./supabase.ts";
 
 dotenv.config();
 
@@ -37,11 +37,11 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Serve uploads folder
