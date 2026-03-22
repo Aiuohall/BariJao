@@ -91,6 +91,11 @@ app.get("/health", (req, res) => {
 // Serve uploads folder
 app.use("/uploads", express.static(uploadDir));
 
+// --- SIMPLE HEALTH CHECK (BEFORE ANYTHING ELSE) ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // --- Middleware ---
 const authenticate = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(" ")[1];
