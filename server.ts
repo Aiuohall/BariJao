@@ -9,7 +9,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
-import { supabase } from "./supabase.ts";
+import { db as supabase, useSupabase } from "./database.ts";
 
 dotenv.config();
 
@@ -40,9 +40,20 @@ app.get("/api/health", async (req, res) => {
   try {
     const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
     if (error) throw error;
-    res.status(200).send({ status: "ok", database: "connected", timestamp: new Date().toISOString() });
+    res.status(200).send({ 
+      status: "ok", 
+      database: useSupabase ? "connected (Supabase)" : "connected (SQLite)", 
+      timestamp: new Date().toISOString() 
+    });
   } catch (e: any) {
-    res.status(200).send({ status: "ok", database: "error", error: e.message, timestamp: new Date().toISOString() });
+    console.error("Database connection error:", e);
+    res.status(200).send({ 
+      status: "ok", 
+      database: "error", 
+      error: e.message, 
+      details: e.cause ? e.cause.message : undefined,
+      timestamp: new Date().toISOString() 
+    });
   }
 });
 
@@ -173,6 +184,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 });
 
+// Admin login route
 app.post("/api/auth/admin-login", async (req, res) => {
   const { adminId, password } = req.body;
   
@@ -187,31 +199,10 @@ app.post("/api/auth/admin-login", async (req, res) => {
       const token = jwt.sign({ id: user.id, role: "admin" }, JWT_SECRET, { expiresIn: "1d" });
       return res.json({ token, user: { id: user.id, name: user.name, role: "admin" } });
     } else if (!user) {
-      // If no admin user exists in 'users' table, we might need to create one or use a default
-      // For now, let's suggest creating one via a bootstrap route or just fail
-      return res.status(401).json({ error: "No admin user found in users table. Please use /api/admin/bootstrap to create one." });
+      return res.status(401).json({ error: "No admin user found in users table." });
     }
   }
   res.status(401).json({ error: "Invalid admin credentials" });
-});
-
-// Bootstrap route to create initial admin user
-app.post("/api/admin/bootstrap", async (req, res) => {
-  const { secret } = req.body;
-  if (secret !== "barijao_bootstrap_2026") return res.status(403).json({ error: "Forbidden" });
-
-  const hashedPassword = await bcrypt.hash("adminpassword123", 10);
-  const { data, error } = await supabase.from('users').insert([{
-    name: "Main Admin",
-    email: "admin@barijao.com",
-    phone: "01700000000",
-    password_hash: hashedPassword,
-    role: "admin",
-    is_verified: true
-  }]).select().single();
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ message: "Admin user created", user: { email: "admin@barijao.com", password: "adminpassword123" } });
 });
 
 // --- Profile Routes ---
