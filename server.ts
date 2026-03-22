@@ -23,7 +23,6 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const app = express();
-app.set('trust proxy', 1);
 const PORT = 3000;
 
 // Gemini Setup
@@ -37,16 +36,18 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/api/health", async (req, res) => {
+  console.log("Health check request received");
   try {
     const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
     if (error) throw error;
+    console.log("Health check successful, database:", useSupabase ? "Supabase" : "SQLite");
     res.status(200).send({ 
       status: "ok", 
       database: useSupabase ? "connected (Supabase)" : "connected (SQLite)", 
       timestamp: new Date().toISOString() 
     });
   } catch (e: any) {
-    console.error("Database connection error:", e);
+    console.error("Database connection error in health check:", e);
     res.status(200).send({ 
       status: "ok", 
       database: "error", 

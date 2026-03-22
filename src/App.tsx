@@ -31,14 +31,14 @@ const ServerStatus = () => {
   const check = async () => {
     setStatus('checking');
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(`/api/health?t=${Date.now()}`);
       if (res.ok) {
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await res.json();
           if (data.status === 'ok') {
             setStatus('online');
-            setDbStatus(data.database === 'connected' ? 'connected' : 'error');
+            setDbStatus(data.database.startsWith('connected') ? 'connected' : 'error');
             return;
           }
         } else {
