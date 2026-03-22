@@ -5,13 +5,15 @@ export interface User {
   phone: string;
   role: 'user' | 'admin';
   rating: number;
+  rating_count: number;
+  banned: boolean;
   created_at: string;
 }
 
 export interface Ticket {
   id: string;
   seller_id: string;
-  transport_type: 'bus' | 'train' | 'launch';
+  transport_type: string;
   operator_name: string;
   from_location: string;
   to_location: string;
@@ -19,43 +21,15 @@ export interface Ticket {
   seat_number: string;
   original_price: number;
   asking_price: number;
-  ticket_purchase_date: string;
-  ticket_image: string;
-  status: 'available' | 'sold';
+  ticket_image: string | null;
+  status: 'pending' | 'available' | 'sold' | 'expired';
+  verified: boolean;
   created_at: string;
   seller?: {
     name: string;
     rating: number;
+    rating_count: number;
   };
-}
-
-export interface Listing {
-  id: string;
-  user_id: string;
-  transport_type: 'bus' | 'train' | 'launch';
-  operator_name: string;
-  from_location: string;
-  to_location: string;
-  journey_date: string;
-  seat_number: string;
-  original_price: number;
-  asking_price: number;
-  ticket_image: string;
-  status: 'pending' | 'available' | 'sold';
-  created_at: string;
-  user?: {
-    name: string;
-    rating: number;
-  };
-}
-
-export interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  ticket_id: string;
-  message: string;
-  created_at: string;
 }
 
 export interface Transaction {
@@ -64,15 +38,34 @@ export interface Transaction {
   seller_id: string;
   ticket_id: string;
   payment_method: string;
-  transaction_id: string;
-  status: 'negotiating' | 'payment_sent' | 'ticket_delivered' | 'completed';
+  transaction_reference: string;
+  status: string;
   created_at: string;
+  ticket?: Ticket;
+  seller?: {
+    name: string;
+    phone: string;
+  };
 }
 
-export interface Report {
+export interface Message {
   id: string;
-  reporter_id: string;
-  reported_user_id: string;
-  reason: string;
+  ticket_id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  created_at: string;
+  sender?: { name: string };
+  receiver?: { name: string };
+  ticket?: { transport_type: string, operator_name: string };
+}
+
+export interface Rating {
+  id: string;
+  transaction_id: string;
+  rater_id: string;
+  rated_id: string;
+  score: number;
+  comment: string;
   created_at: string;
 }

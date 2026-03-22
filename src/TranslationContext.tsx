@@ -42,7 +42,8 @@ const translations = {
     paymentSent: 'Payment Sent',
     ticketDelivered: 'Ticket Delivered',
     completed: 'Completed',
-    report: 'Report User'
+    report: 'Report User',
+    messages: 'Messages'
   },
   bn: {
     home: 'হোম',
@@ -77,7 +78,8 @@ const translations = {
     paymentSent: 'পেমেন্ট পাঠানো হয়েছে',
     ticketDelivered: 'টিকিট ডেলিভারি হয়েছে',
     completed: 'সম্পন্ন',
-    report: 'রিপোর্ট করুন'
+    report: 'রিপোর্ট করুন',
+    messages: 'মেসেজ'
   }
 };
 

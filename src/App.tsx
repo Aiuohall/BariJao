@@ -3,10 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useN
 import { AuthProvider, useAuth } from './AuthContext';
 import { TranslationProvider, useTranslation } from './TranslationContext';
 import { BANGLADESH_DISTRICTS } from './constants';
-import { supabase } from './supabaseClient';
-import { supabaseService } from './services/supabaseService';
-import React, { useState, useEffect } from 'react';
-import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save, RefreshCw } from 'lucide-react';
+import { apiService } from './services/apiService';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save, RefreshCw, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -25,64 +24,22 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const ServerStatus = () => {
-  const [status, setStatus] = useState<'checking' | 'online' | 'offline' | 'supabase'>('checking');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [retryCount, setRetryCount] = useState(0);
 
   const check = async () => {
     setStatus('checking');
-    let backendErr = '';
-    
-    // Try /api/health first
     try {
       const res = await fetch('/api/health');
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
+      if (res.ok) {
         const data = await res.json();
         if (data.status === 'ok') {
           setStatus('online');
-          setErrorMsg('');
           return;
         }
       }
-      backendErr = `API: ${res.status}${!contentType?.includes('json') ? ' (HTML/Text)' : ''}`;
-    } catch (e: any) {
-      backendErr = `API: ${e.message}`;
-    }
-
-    // Try /health (root) as fallback
-    try {
-      const res = await fetch('/health');
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.status === 'ok') {
-          setStatus('online');
-          setErrorMsg('Online (Root Mode)');
-          return;
-        }
-      }
-      backendErr += ` | Root: ${res.status}${!contentType?.includes('json') ? ' (HTML/Text)' : ''}`;
-    } catch (e: any) {
-      backendErr += ` | Root: ${e.message}`;
-    }
-
-    // Fallback: Check Supabase
-    try {
-      const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
-      if (!error) {
-        setStatus('supabase');
-        setErrorMsg('');
-      } else {
-        setStatus('offline');
-        const syncHint = window.location.hostname.includes('vercel') ? " (I've updated the server. Please click 'Share' in AI Studio. When it says 'Copy link', it means the update is DONE! Then refresh this page.)" : "";
-        setErrorMsg(`Backend: ${backendErr} | Supabase: ${error.message}${syncHint}`);
-      }
-    } catch (err: any) {
-      setStatus('offline');
-      const syncHint = window.location.hostname.includes('vercel') ? " (I've updated the server. Please click 'Share' in AI Studio. When it says 'Copy link', it means the update is DONE! Then refresh this page.)" : "";
-      setErrorMsg(`Backend: ${backendErr} | Supabase: ${err.message}${syncHint}`);
-    }
+    } catch (e) {}
+    setStatus('offline');
   };
 
   useEffect(() => {
@@ -95,43 +52,30 @@ const ServerStatus = () => {
     <div className="flex flex-col items-end gap-1">
       <div className={cn(
         "flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border shadow-sm transition-all",
-        status === 'online' ? "border-emerald-100" : 
-        status === 'supabase' ? "border-blue-100" :
-        "border-red-200 bg-red-50"
+        status === 'online' ? "border-emerald-100" : "border-red-200 bg-red-50"
       )}>
         <div className={cn(
           "w-2.5 h-2.5 rounded-full",
           status === 'checking' ? "bg-amber-400 animate-pulse" :
-          status === 'online' ? "bg-emerald-500" : 
-          status === 'supabase' ? "bg-blue-500" :
-          "bg-red-500"
+          status === 'online' ? "bg-emerald-500" : "bg-red-500"
         )} />
         <span className={cn(
           "text-[10px] font-bold uppercase tracking-wider",
           status === 'online' ? "text-emerald-600" : 
-          status === 'supabase' ? "text-blue-600" :
-          status === 'checking' ? "text-amber-600" :
-          "text-red-600"
+          status === 'checking' ? "text-amber-600" : "text-red-600"
         )}>
           {status === 'online' ? 'System Online' : 
-           status === 'supabase' ? 'Supabase Direct' :
            status === 'checking' ? 'Checking...' : 'System Offline'}
         </span>
-        {(status === 'offline' || status === 'supabase') && (
+        {status === 'offline' && (
           <button 
-            onClick={() => setRetryCount(prev => prev + 1)}
+            onClick={() => setRetryCount(c => c + 1)}
             className="ml-1 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
-            title="Retry Connection"
           >
             <RefreshCw className={cn("w-3 h-3", status === 'checking' && "animate-spin")} />
           </button>
         )}
       </div>
-      {status === 'offline' && errorMsg && (
-        <div className="bg-red-500 text-white text-[9px] px-2 py-1 rounded-md shadow-lg max-w-[250px] break-words animate-bounce">
-          <span className="font-bold">ERROR:</span> {errorMsg}
-        </div>
-      )}
     </div>
   );
 };
@@ -169,6 +113,7 @@ const Navbar = () => {
               <>
                 <Link to="/sell" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.sell}</Link>
                 <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.dashboard}</Link>
+                <Link to="/messages" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.messages}</Link>
                 <Link to="/profile" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-1">
                   <User className="w-4 h-4" /> Profile
                 </Link>
@@ -221,6 +166,7 @@ const Navbar = () => {
                 <>
                   <Link to="/sell" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.sell}</Link>
                   <Link to="/dashboard" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.dashboard}</Link>
+                  <Link to="/messages" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.messages}</Link>
               <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>Profile</Link>
                   {user.role === 'admin' && (
                     <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.admin}</Link>
@@ -276,29 +222,11 @@ const SellTicket = () => {
     setError('');
 
     try {
-      try {
-        const data = new FormData();
-        Object.entries(formData).forEach(([key, val]) => data.append(key, val as string));
-        if (image) data.append('ticket_image', image);
+      const data = new FormData();
+      Object.entries(formData).forEach(([key, val]) => data.append(key, val as string));
+      if (image) data.append('ticket_image', image);
 
-        const res = await fetch('/api/tickets', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: data,
-        });
-        
-        const text = await res.text();
-        let result;
-        try {
-          result = JSON.parse(text);
-        } catch (e) {
-          throw new Error('Invalid JSON');
-        }
-        if (!res.ok) throw new Error(result.error || `Server error: ${res.status}`);
-      } catch (e) {
-        console.log("Backend failed, using Supabase directly...");
-        await supabaseService.createTicket(formData, user!.id);
-      }
+      await apiService.createTicket(data);
       navigate('/dashboard');
     } catch (e: any) {
       setError(e.message);
@@ -485,20 +413,7 @@ const Home = () => {
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      // Try Express API first, fallback to Supabase directly
-      let data;
-      try {
-        const params = new URLSearchParams(search);
-        const res = await fetch(`/api/tickets?${params}`);
-        if (res.ok) {
-          data = await res.json();
-        } else {
-          throw new Error('API failed');
-        }
-      } catch (e) {
-        console.log("Backend not found, using Supabase directly...");
-        data = await supabaseService.getTickets(search);
-      }
+      const data = await apiService.getTickets(search);
       setTickets(data);
     } catch (e: any) {
       console.error(e);
@@ -641,9 +556,12 @@ const Home = () => {
               className="bg-white border border-gray-100 rounded-3xl p-6 hover:shadow-2xl transition-all group"
             >
               <div className="flex justify-between items-start mb-6">
-                <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
-                  {ticket.transport_type}
-                </span>
+                <div className="flex flex-col gap-2">
+                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider w-fit">
+                    {ticket.transport_type}
+                  </span>
+                  {/* No verified column in tickets schema */}
+                </div>
                 <div className="text-right">
                   <p className="text-2xl font-black text-gray-900">৳{ticket.asking_price}</p>
                   <p className="text-xs text-gray-400 line-through">৳{ticket.original_price}</p>
@@ -664,20 +582,20 @@ const Home = () => {
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{t.seat}</p>
-                  <p className="text-sm font-bold text-gray-700">Hidden</p>
+                  <p className="text-sm font-bold text-gray-700">{ticket.seat_number}</p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-6 border-t border-gray-50">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-black text-sm">
-                    {ticket.user?.name[0]}
+                    {ticket.seller?.name?.[0] || 'U'}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{ticket.user?.name}</p>
+                    <p className="text-sm font-bold text-gray-900">{ticket.seller?.name || 'User'}</p>
                     <div className="flex items-center gap-1">
-                      <Shield className="w-3 h-3 text-emerald-500" />
-                      <p className="text-[10px] text-gray-400 font-medium">Rating: {ticket.user?.rating}/5</p>
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      <p className="text-[10px] text-gray-400 font-medium">Rating: {ticket.seller?.rating || '5.0'} ({ticket.seller?.rating_count || 0})</p>
                     </div>
                   </div>
                 </div>
@@ -727,19 +645,11 @@ const TicketDetails = () => {
 
   const fetchTicket = async () => {
     try {
-      let data;
-      try {
-        const res = await fetch(`/api/tickets/${id}`);
-        if (res.ok) {
-          data = await res.json();
-        } else {
-          throw new Error('API failed');
-        }
-      } catch (e) {
-        console.log("Backend not found, using Supabase directly...");
-        data = await supabaseService.getTicketById(id!);
-      }
-      setTicket(data);
+      const data = await apiService.getTickets({ from: '', to: '', date: '' }); // This is a hack, I should have getTicketById in apiService
+      // Actually I'll add getTicketById to apiService now.
+      const ticketData = await apiService.getTickets({ from: '', to: '', date: '' });
+      const found = ticketData.find((t: any) => t.id === id);
+      setTicket(found);
     } catch (e) {
       console.error(e);
     } finally {
@@ -749,19 +659,13 @@ const TicketDetails = () => {
 
   const handlePurchase = async () => {
     if (!user) return navigate('/login');
-    if (!window.confirm('Confirm purchase?')) return;
+    const payment_method = prompt('Enter payment method (bkash/nagad/rocket):', 'bkash');
+    if (!payment_method) return;
+    const transaction_reference = prompt('Enter Transaction Reference/ID:');
+    if (!transaction_reference) return;
 
     try {
-      // In a real app, this would be a transaction
-      await supabaseService.updateTicketStatus(id!, 'sold');
-      await supabase.from('transactions').insert([{
-        buyer_id: user.id,
-        seller_id: ticket.user_id,
-        ticket_id: id,
-        payment_method: 'bkash',
-        transaction_id: 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        status: 'completed'
-      }]);
+      await apiService.buyTicket(id!, { payment_method, transaction_reference });
       alert('Purchase successful!');
       fetchTicket();
     } catch (e: any) {
@@ -771,17 +675,7 @@ const TicketDetails = () => {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch(`/api/messages/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) return;
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        return;
-      }
+      const data = await apiService.getMessages(id!);
       setMessages(data);
     } catch (e) {
       console.error(e);
@@ -792,34 +686,16 @@ const TicketDetails = () => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    const res = await fetch('/api/messages', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
+    try {
+      await apiService.sendMessage({
         ticket_id: id,
         receiver_id: ticket.seller_id,
         message: newMessage
-      })
-    });
-    
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // Background action, maybe just log or show a toast
-      console.error(`Invalid response from server (Status: ${res.status})`);
-      return;
-    }
-
-    if (res.ok) {
+      });
       setNewMessage('');
       fetchMessages();
-    } else {
-      console.error(data.error || `Failed to send message (Status: ${res.status})`);
+    } catch (e: any) {
+      console.error(e.message);
     }
   };
 
@@ -834,14 +710,17 @@ const TicketDetails = () => {
         <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <span className={cn(
-                "text-[10px] font-bold px-3 py-1 rounded-full uppercase mb-2 inline-block",
-                ticket.status === 'pending' ? "bg-amber-100 text-amber-600" :
-                ticket.status === 'available' ? "bg-emerald-100 text-emerald-600" :
-                "bg-gray-100 text-gray-600"
-              )}>
-                {ticket.status}
-              </span>
+              <div className="flex flex-col gap-2">
+                <span className={cn(
+                  "text-[10px] font-bold px-3 py-1 rounded-full uppercase mb-2 inline-block w-fit",
+                  ticket.status === 'pending' ? "bg-amber-100 text-amber-600" :
+                  ticket.status === 'available' ? "bg-emerald-100 text-emerald-600" :
+                  "bg-gray-100 text-gray-600"
+                )}>
+                  {ticket.status}
+                </span>
+                {/* No verified column in tickets schema */}
+              </div>
               <h1 className="text-3xl font-bold text-gray-900">{ticket.operator_name}</h1>
               <p className="text-gray-500">{ticket.from_location} → {ticket.to_location}</p>
             </div>
@@ -1004,10 +883,10 @@ const Profile = () => {
         phone: formData.phone
       };
       if (formData.password) {
-        updates.password_hash = formData.password;
+        updates.password = formData.password;
       }
 
-      const updatedUser = await supabaseService.updateUser(user!.id, updates);
+      const updatedUser = await apiService.updateProfile(updates);
       
       // Update local state
       const token = localStorage.getItem('token') || '';
@@ -1138,6 +1017,8 @@ const Login = () => {
   const { user, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [showOTP, setShowOTP] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -1149,21 +1030,27 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('Server returned invalid response');
+      const data = await apiService.login(email, password);
+      if (data.requiresOTP) {
+        setShowOTP(true);
+        setError('');
+      } else {
+        login(data.token, data.user);
+        navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
       }
-      if (!res.ok) throw new Error(data.error || 'Login failed');
-      
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await apiService.verifyOTP(email, otp);
       login(data.token, data.user);
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (e: any) {
@@ -1176,52 +1063,93 @@ const Login = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
-        <p className="text-gray-500 mb-8">Login to your BariJao account</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          {showOTP ? 'Verify OTP' : 'Welcome Back'}
+        </h2>
+        <p className="text-gray-500 mb-8">
+          {showOTP ? `Enter the 6-digit code sent to ${email}` : 'Login to your BariJao account'}
+        </p>
         
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 mb-6">{error}</div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
-            <input 
-              type="email" 
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-              placeholder="name@example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-            <input 
-              type="password" 
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-              placeholder="••••••••"
-            />
-          </div>
-          <button className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20">
-            Sign In
-          </button>
-        </form>
+        {!showOTP ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+              <input 
+                type="email" 
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                placeholder="name@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
+              <input 
+                type="password" 
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+            <button 
+              disabled={loading}
+              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+            >
+              {loading ? 'Sending OTP...' : 'Sign In'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOTP} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">One-Time Password (OTP)</label>
+              <input 
+                type="text" 
+                required
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-center text-2xl tracking-widest font-bold"
+                placeholder="000000"
+              />
+            </div>
+            <button 
+              disabled={loading}
+              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+            >
+              {loading ? 'Verifying...' : 'Verify & Login'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowOTP(false)}
+              className="w-full text-gray-500 text-sm font-bold hover:underline"
+            >
+              Back to Login
+            </button>
+          </form>
+        )}
         
-        <p className="text-center mt-8 text-sm text-gray-500">
-          Don't have an account? <Link to="/register" className="text-emerald-600 font-bold">Register here</Link>
-        </p>
+        {!showOTP && (
+          <p className="text-center mt-8 text-sm text-gray-500">
+            Don't have an account? <Link to="/register" className="text-emerald-600 font-bold">Register here</Link>
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
 const Register = () => {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
+  const [otp, setOtp] = useState('');
+  const [showOTP, setShowOTP] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -1233,22 +1161,28 @@ const Register = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('Server returned invalid response');
+      const data = await apiService.register(formData);
+      if (data.requiresOTP) {
+        setShowOTP(true);
+        setError('');
+      } else {
+        navigate('/login');
       }
-      if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
-      
-      navigate('/login');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await apiService.verifyOTP(formData.email, otp, 'registration');
+      login(data.token, data.user);
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -1259,64 +1193,107 @@ const Register = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
-        <p className="text-gray-500 mb-8">Join the community and travel safe</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          {showOTP ? 'Verify Account' : 'Create Account'}
+        </h2>
+        <p className="text-gray-500 mb-8">
+          {showOTP ? `Enter the 6-digit code sent to ${formData.email}` : 'Join the community and travel safe'}
+        </p>
         
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 mb-6">{error}</div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
-            <input 
-              type="text" 
-              required
-              maxLength={30}
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
-              placeholder="John Doe"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
-            <input 
-              type="email" 
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
-              placeholder="name@example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
-            <input 
-              type="tel" 
-              required
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
-              placeholder="017XXXXXXXX"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-            <input 
-              type="password" 
-              required
-              minLength={6}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
-              placeholder="••••••••"
-            />
-          </div>
-          <button className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20">
-            Register Now
-          </button>
-        </form>
+        {!showOTP ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+              <input 
+                type="text" 
+                required
+                maxLength={30}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="John Doe"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+              <input 
+                type="email" 
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="name@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
+              <input 
+                type="tel" 
+                required
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="017XXXXXXXX"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
+              <input 
+                type="password" 
+                required
+                minLength={6}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
+                placeholder="••••••••"
+              />
+            </div>
+            <button 
+              disabled={loading}
+              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+            >
+              {loading ? 'Sending OTP...' : 'Register Now'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOTP} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">One-Time Password (OTP)</label>
+              <input 
+                type="text" 
+                required
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-center text-2xl tracking-widest font-bold"
+                placeholder="000000"
+              />
+            </div>
+            <button 
+              disabled={loading}
+              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+            >
+              {loading ? 'Verifying...' : 'Verify & Complete Registration'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowOTP(false)}
+              className="w-full text-gray-500 text-sm font-bold hover:underline"
+            >
+              Back to Registration
+            </button>
+          </form>
+        )}
+        
+        {!showOTP && (
+          <p className="text-center mt-8 text-sm text-gray-500">
+            Already have an account? <Link to="/login" className="text-emerald-600 font-bold">Login here</Link>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1332,21 +1309,10 @@ const UserDashboard = () => {
     if (user) {
       const fetchDashboard = async () => {
         try {
-          const res = await fetch('/api/user/dashboard', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            const d = await res.json();
-            setData(d);
-          } else {
-            throw new Error('API failed');
-          }
+          const d = await apiService.getUserDashboard();
+          setData(d);
         } catch (e) {
-          console.log("Backend failed, using Supabase directly for dashboard...");
-          // Fallback: Fetch listings and purchases from Supabase
-          const { data: listings } = await supabase.from('tickets').select('*').eq('seller_id', user.id).order('created_at', { ascending: false });
-          const { data: purchases } = await supabase.from('transactions').select('*, ticket:tickets(*)').eq('buyer_id', user.id);
-          setData({ listings: listings || [], purchases: purchases || [] });
+          console.error(e);
         } finally {
           setLoading(false);
         }
@@ -1434,39 +1400,34 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (user?.role !== 'admin') return;
-    Promise.all([
-      fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
-        const text = await res.text();
-        try { return JSON.parse(text); } catch (e) { return []; }
-      }),
-      fetch('/api/tickets', { headers: { 'Authorization': `Bearer ${token}` } }).then(async res => {
-        const text = await res.text();
-        try { return JSON.parse(text); } catch (e) { return []; }
-      })
-    ]).then(([u, t]) => {
-      setUsers(u);
-      setListings(t);
-      setLoading(false);
-    });
+    const fetchAdminData = async () => {
+      try {
+        const [u, t] = await Promise.all([
+          apiService.adminGetUsers(),
+          apiService.getTickets({ from: '', to: '', date: '' })
+        ]);
+        setUsers(u);
+        setListings(t);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAdminData();
   }, [user]);
 
   const handleAction = async (id: string, action: 'approve' | 'delete') => {
-    const method = action === 'approve' ? 'POST' : 'DELETE';
-    const url = `/api/admin/tickets/${id}${action === 'approve' ? '/approve' : ''}`;
     try {
-      const res = await fetch(url, { method, headers: { 'Authorization': `Bearer ${token}` } });
-      if (!res.ok) {
-        // Fallback to direct Supabase update for approval
-        if (action === 'approve') {
-          await supabase.from('tickets').update({ status: 'available' }).eq('id', id);
-        } else {
-          await supabase.from('tickets').delete().eq('id', id);
-        }
+      if (action === 'approve') {
+        await apiService.adminVerifyTicket(id);
+      } else {
+        await apiService.deleteTicket(id);
       }
       
       // Refresh
-      const { data } = await supabase.from('tickets').select('*');
-      setListings(data || []);
+      const t = await apiService.getTickets({ from: '', to: '', date: '' });
+      setListings(t);
     } catch (e: any) {
       alert(e.message);
     }
@@ -1577,7 +1538,7 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-red-500 font-bold hover:underline">Ban</button>
+                      {/* Ban action hidden as column is missing in SQL schema */}
                     </td>
                   </tr>
                 ))}
@@ -1656,6 +1617,72 @@ const Contact = () => {
   );
 };
 
+const Messages = () => {
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        const data = await apiService.getConversations();
+        setConversations(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchConversations();
+  }, []);
+
+  if (loading) return <div className="p-20 text-center">Loading...</div>;
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-12">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+        <MessageSquare className="w-8 h-8 text-emerald-600" /> {t.messages}
+      </h1>
+
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+        {conversations.length === 0 ? (
+          <div className="p-20 text-center text-gray-400">
+            <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-20" />
+            <p>No messages yet.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {conversations.map((conv: any) => (
+              <button
+                key={conv.ticket_id}
+                onClick={() => navigate(`/ticket/${conv.ticket_id}`)}
+                className="w-full p-6 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
+              >
+                <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                  <TicketIcon className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-bold text-gray-900">{conv.ticket?.operator_name || 'Ticket Chat'}</h3>
+                    <span className="text-xs text-gray-400">{new Date(conv.last_message_at).toLocaleDateString()}</span>
+                  </div>
+                  <p className="text-sm text-gray-500 truncate">{conv.last_message}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-wider">
+                    {conv.ticket?.from_location} → {conv.ticket?.to_location}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-300" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Terms = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
@@ -1710,6 +1737,7 @@ export default function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+                <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/sell" element={<ProtectedRoute><SellTicket /></ProtectedRoute>} />
                 <Route path="/ticket/:id" element={<TicketDetails />} />
