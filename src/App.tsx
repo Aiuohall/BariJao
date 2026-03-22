@@ -32,10 +32,19 @@ const ServerStatus = () => {
     try {
       const res = await fetch('/api/health');
       if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'ok') {
-          setStatus('online');
-          return;
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data.status === 'ok') {
+            setStatus('online');
+            return;
+          }
+        } else {
+          // If it's HTML, it's likely the AI Studio proxy page
+          const text = await res.text();
+          if (text.includes('Please wait while your application starts')) {
+            console.log('Server is still starting up...');
+          }
         }
       }
     } catch (e) {}
@@ -1091,9 +1100,17 @@ const Login = () => {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ secret: 'barijao_bootstrap_2026' })
                 });
-                const data = await res.json();
-                if (res.ok) alert('Admin bootstrapped! Email: admin@barijao.com, Pass: adminpassword123');
-                else alert(data.error || 'Bootstrap failed');
+                
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                  const data = await res.json();
+                  if (res.ok) alert('Admin bootstrapped! Email: admin@barijao.com, Pass: adminpassword123');
+                  else alert(data.error || 'Bootstrap failed');
+                } else {
+                  const text = await res.text();
+                  console.error('Non-JSON response:', text);
+                  alert('Server returned HTML instead of JSON. The backend might be starting up or the proxy URL is incorrect. Please wait a moment and try again.');
+                }
               } catch (e: any) {
                 alert('Bootstrap failed: ' + e.message);
               }
