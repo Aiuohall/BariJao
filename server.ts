@@ -46,34 +46,45 @@ app.use(express.json());
 app.get("/api/health", async (req, res) => {
   console.log("Health check request received");
   try {
+    // Check database connection
     const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
-    if (error) throw error;
+    
+    if (error) {
+      console.error("Database error in health check:", error);
+      return res.status(200).send({ 
+        status: "ok", 
+        database: "error", 
+        error: error.message,
+        useSupabase,
+        env: {
+          SUPABASE_URL: !!process.env.SUPABASE_URL,
+          SUPABASE_KEY: !!process.env.SUPABASE_KEY,
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
     console.log("Health check successful, database:", useSupabase ? "Supabase" : "SQLite");
     res.status(200).send({ 
       status: "ok", 
       database: useSupabase ? "connected (Supabase)" : "connected (SQLite)", 
+      useSupabase,
       env: {
-        VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
         SUPABASE_URL: !!process.env.SUPABASE_URL,
-        VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
         SUPABASE_KEY: !!process.env.SUPABASE_KEY,
+        VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+        VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
       },
       timestamp: new Date().toISOString() 
     });
   } catch (e: any) {
-    console.error("Database connection error in health check:", e);
+    console.error("Critical error in health check:", e);
     res.status(200).send({ 
       status: "ok", 
-      database: "error", 
+      database: "critical_error", 
       error: e.message, 
-      details: e.cause ? e.cause.message : undefined,
-      env: {
-        VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
-        SUPABASE_URL: !!process.env.SUPABASE_URL,
-        VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
-        SUPABASE_KEY: !!process.env.SUPABASE_KEY,
-      },
-      timestamp: new Date().toISOString() 
+      useSupabase,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -392,7 +403,10 @@ app.post("/api/ratings", authenticate, async (req: any, res) => {
   const { data: allRatings } = await supabase.from('ratings').select('rating').eq('user_id', ticket.seller_id);
   if (allRatings && allRatings.length > 0) {
     const avg = allRatings.reduce((acc, r) => acc + r.rating, 0) / allRatings.length;
-    await supabase.from('users').update({ rating: avg }).eq('id', ticket.seller_id);
+    await supabase.from('users').update({ 
+      rating: avg,
+      rating_count: allRatings.length 
+    }).eq('id', ticket.seller_id);
   }
 
   res.json({ success: true });
@@ -527,6 +541,15 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`BariJao Server running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`BariJao Server running on http://localhost:${PORT}`);
+  });
+} else {
+  // In production (Vercel/Cloud Run), the platform handles the port
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`BariJao Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;

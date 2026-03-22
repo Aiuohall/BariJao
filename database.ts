@@ -40,9 +40,14 @@ const initSqlite = () => {
 };
 
 // Check if Supabase is working
-let useSupabase = true;
+export let useSupabase = false; // Default to false until confirmed
+let supabaseChecked = false;
+
 const checkSupabase = async () => {
   try {
+    if (!supabase || typeof supabase.from !== 'function') {
+      throw new Error('Supabase client not initialized correctly');
+    }
     const { error } = await supabase.from('users').select('count', { count: 'exact', head: true });
     if (error) {
       console.warn('Supabase connection failed, falling back to SQLite:', error.message);
@@ -50,11 +55,14 @@ const checkSupabase = async () => {
       initSqlite();
     } else {
       console.log('Using Supabase as primary database');
+      useSupabase = true;
     }
-  } catch (e) {
-    console.warn('Supabase connection error, falling back to SQLite');
+  } catch (e: any) {
+    console.warn('Supabase connection error, falling back to SQLite:', e.message);
     useSupabase = false;
     initSqlite();
+  } finally {
+    supabaseChecked = true;
   }
 };
 
@@ -63,10 +71,13 @@ checkSupabase();
 
 export const db = {
   from: (table: string) => {
-    if (useSupabase) {
+    if (useSupabase && supabase && typeof supabase.from === 'function') {
       return supabase.from(table);
     } else {
       // Mock Supabase-like interface for SQLite
+      // Ensure SQLite is initialized if it hasn't been
+      if (!sqlite) initSqlite();
+      
       const builder = {
         _query: `SELECT * FROM ${table}`,
         _params: [] as any[],
@@ -279,5 +290,3 @@ export const db = {
     }
   }
 };
-
-export { useSupabase };
