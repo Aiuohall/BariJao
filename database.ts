@@ -3,6 +3,7 @@ import { supabase } from './supabase.ts';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +27,8 @@ const initSqlite = () => {
     .replace(/ALTER TABLE .* ENABLE ROW LEVEL SECURITY;/g, '')
     .replace(/DROP POLICY IF EXISTS .* ON .*;/g, '')
     .replace(/CREATE POLICY .* ON .* FOR .* USING \(.*\);/g, '')
+    .replace(/BOOLEAN DEFAULT false/g, 'INTEGER DEFAULT 0')
+    .replace(/BOOLEAN DEFAULT true/g, 'INTEGER DEFAULT 1')
     .replace(/CHECK \(status IN \('pending', 'available', 'sold'\)\)/g, ''); // SQLite check constraints are different but we can skip for now
 
   try {
@@ -156,7 +159,10 @@ export const db = {
 
         update: function(updates: any) {
           const keys = Object.keys(updates);
-          const values = Object.values(updates);
+          const values = Object.values(updates).map(v => {
+            if (typeof v === 'boolean') return v ? 1 : 0;
+            return v;
+          });
           this._query = `UPDATE ${table} SET ${keys.map(k => `${k} = ?`).join(',')}`;
           this._params.unshift(...values); // Updates come before filters in the query
           return this;
@@ -238,8 +244,16 @@ export const db = {
         },
 
         insert: function(data: any[]) {
-          const keys = Object.keys(data[0]);
-          const values = data.map(d => Object.values(d));
+          const processedData = data.map(d => {
+            const newItem = { ...d };
+            if (!newItem.id) newItem.id = crypto.randomUUID();
+            Object.keys(newItem).forEach(key => {
+              if (typeof newItem[key] === 'boolean') newItem[key] = newItem[key] ? 1 : 0;
+            });
+            return newItem;
+          });
+          const keys = Object.keys(processedData[0]);
+          const values = processedData.map(d => Object.values(d));
           const placeholders = keys.map(() => '?').join(',');
           const stmt = sqlite.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`);
           
@@ -248,13 +262,17 @@ export const db = {
             // Mock the .select().single() chain
             return {
               select: () => ({
-                single: () => ({ data: data[0], error: null })
+                single: () => ({ data: processedData[0], error: null })
               }),
-              then: (resolve: any) => resolve({ data: data[0], error: null })
+              then: (resolve: any) => resolve({ data: processedData[0], error: null })
             };
           } catch (e: any) {
             return { data: null, error: e, then: (resolve: any) => resolve({ data: null, error: e }) };
           }
+        },
+
+        upsert: function(data: any[]) {
+          return this.insert(data);
         }
       };
       return builder as any;

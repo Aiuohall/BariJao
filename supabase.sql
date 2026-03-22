@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role TEXT DEFAULT 'user',
     rating DECIMAL DEFAULT 5.0,
+    rating_count INTEGER DEFAULT 0,
+    is_verified BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -54,6 +56,29 @@ CREATE TABLE IF NOT EXISTS transactions (
     payment_method TEXT NOT NULL,
     transaction_id TEXT NOT NULL,
     status TEXT DEFAULT 'payment_sent',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Seed Data for Admin (Optional, for local testing)
+-- Note: password is 'adminpassword123' hashed with bcrypt
+-- INSERT INTO users (id, name, email, phone, password_hash, role) 
+-- VALUES ('00000000-0000-0000-0000-000000000001', 'Main Admin', 'admin@barijao.com', '01700000000', '$2a$10$7R.vX/X5vX.vX/X5vX.vX.vX/X5vX.vX/X5vX.vX.vX/X5vX.vX/X5vX', 'admin');
+-- INSERT INTO admins (id, admin_identifier) VALUES ('00000000-0000-0000-0000-000000000001', 'ADMIN-2026');
+
+-- Admins Table
+CREATE TABLE IF NOT EXISTS admins (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_identifier TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- OTP Codes Table
+CREATE TABLE IF NOT EXISTS otp_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    otp_code TEXT NOT NULL,
+    otp_type TEXT NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
