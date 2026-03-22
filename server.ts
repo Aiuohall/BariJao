@@ -527,6 +527,9 @@ const cleanupExpiredTickets = async () => {
 };
 setInterval(cleanupExpiredTickets, 1000 * 60 * 60); // Every hour
 
+// --- Test Route ---
+app.get('/test', (req, res) => res.send('OK'));
+
 // --- Vite middleware ---
 if (process.env.NODE_ENV !== "production") {
   const vite = await createViteServer({
@@ -543,12 +546,12 @@ if (process.env.NODE_ENV !== "production") {
 
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`BariJao Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 } else {
   // In production (Vercel/Cloud Run), the platform handles the port
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`BariJao Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 

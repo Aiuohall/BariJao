@@ -13,6 +13,9 @@ console.log('Environment variables check:', {
   VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY
 });
 
+console.log('VITE_SUPABASE_URL value:', process.env.VITE_SUPABASE_URL ? process.env.VITE_SUPABASE_URL.substring(0, 15) + '...' : 'undefined');
+console.log('VITE_SUPABASE_ANON_KEY value:', process.env.VITE_SUPABASE_ANON_KEY ? process.env.VITE_SUPABASE_ANON_KEY.substring(0, 10) + '...' : 'undefined');
+
 console.log('Supabase config loaded:', {
   url: supabaseUrl.substring(0, 15) + '...',
   key: supabaseKey.substring(0, 10) + '...'
