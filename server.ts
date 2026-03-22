@@ -9,7 +9,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
-import { supabase } from "./supabase.js";
+import { supabase } from "./supabase.ts";
 
 dotenv.config();
 
@@ -36,8 +36,14 @@ const JWT_SECRET = process.env.VITE_GOOGLE_AI_API_KEY || process.env.JWT_SECRET 
 app.use(cors());
 app.use(express.json());
 
-app.get("/api/health", (req, res) => {
-  res.status(200).send({ status: "ok", timestamp: new Date().toISOString() });
+app.get("/api/health", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+    if (error) throw error;
+    res.status(200).send({ status: "ok", database: "connected", timestamp: new Date().toISOString() });
+  } catch (e: any) {
+    res.status(200).send({ status: "ok", database: "error", error: e.message, timestamp: new Date().toISOString() });
+  }
 });
 
 app.get("/health", (req, res) => {

@@ -5,7 +5,7 @@ import { TranslationProvider, useTranslation } from './TranslationContext';
 import { BANGLADESH_DISTRICTS } from './constants';
 import { apiService } from './services/apiService';
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save, RefreshCw, ChevronRight } from 'lucide-react';
+import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save, RefreshCw, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -25,6 +25,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const ServerStatus = () => {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'unknown'>('unknown');
   const [retryCount, setRetryCount] = useState(0);
 
   const check = async () => {
@@ -37,6 +38,7 @@ const ServerStatus = () => {
           const data = await res.json();
           if (data.status === 'ok') {
             setStatus('online');
+            setDbStatus(data.database === 'connected' ? 'connected' : 'error');
             return;
           }
         } else {
@@ -49,6 +51,7 @@ const ServerStatus = () => {
       }
     } catch (e) {}
     setStatus('offline');
+    setDbStatus('error');
   };
 
   useEffect(() => {
@@ -73,7 +76,17 @@ const ServerStatus = () => {
           status === 'online' ? "text-emerald-600" : 
           status === 'checking' ? "text-amber-600" : "text-red-600"
         )}>
-          {status === 'online' ? 'System Online' : 
+          {status === 'online' ? (
+            <span>
+              System Online 
+              <span className={cn(
+                "ml-1 px-1 rounded text-[8px]",
+                dbStatus === 'connected' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+              )}>
+                DB: {dbStatus === 'connected' ? 'OK' : 'OFF'}
+              </span>
+            </span>
+          ) : 
            status === 'checking' ? 'Checking...' : 'System Offline'}
         </span>
         {status === 'offline' && (
@@ -879,6 +892,7 @@ const Profile = () => {
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -995,14 +1009,25 @@ const Profile = () => {
               <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                 <Lock className="w-4 h-4 text-gray-400" /> New Password (Optional)
               </label>
-              <input 
-                type="password"
-                disabled={!isEditing}
-                placeholder={isEditing ? "Enter new password" : "••••••••"}
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 transition-all"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"}
+                  disabled={!isEditing}
+                  placeholder={isEditing ? "Enter new password" : "••••••••"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 transition-all pr-12"
+                />
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                )}
+              </div>
             </div>
 
             {isEditing && (
@@ -1028,6 +1053,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [showOTP, setShowOTP] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -1082,44 +1108,8 @@ const Login = () => {
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 mb-6">
             {error}
-            {error.includes('Unexpected token') && (
-              <div className="mt-2 text-[10px] opacity-70">
-                Server might be starting up or returning HTML. Please wait a moment and refresh.
-              </div>
-            )}
           </div>
         )}
-        
-        <div className="mb-6">
-          <button 
-            type="button"
-            onClick={async () => {
-              try {
-                const res = await fetch('/api/admin/bootstrap', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ secret: 'barijao_bootstrap_2026' })
-                });
-                
-                const contentType = res.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                  const data = await res.json();
-                  if (res.ok) alert('Admin bootstrapped! Email: admin@barijao.com, Pass: adminpassword123');
-                  else alert(data.error || 'Bootstrap failed');
-                } else {
-                  const text = await res.text();
-                  console.error('Non-JSON response:', text);
-                  alert('Server returned HTML instead of JSON. The backend might be starting up or the proxy URL is incorrect. Please wait a moment and try again.');
-                }
-              } catch (e: any) {
-                alert('Bootstrap failed: ' + e.message);
-              }
-            }}
-            className="w-full text-[10px] text-emerald-600 font-bold hover:underline opacity-50"
-          >
-            Bootstrap Admin (Debug)
-          </button>
-        </div>
         
         {!showOTP ? (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -1134,16 +1124,25 @@ const Login = () => {
                 placeholder="name@example.com"
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all pr-12"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             <button 
               disabled={loading}
@@ -1197,6 +1196,7 @@ const Register = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
   const [otp, setOtp] = useState('');
   const [showOTP, setShowOTP] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -1287,17 +1287,26 @@ const Register = () => {
                 placeholder="017XXXXXXXX"
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-              <input 
-                type="password" 
-                required
-                minLength={6}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  required
+                  minLength={6}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 outline-none pr-12"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             <button 
               disabled={loading}

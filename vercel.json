@@ -1,7 +1,7 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app/api/$1" },
-    { "source": "/uploads/(.*)", "destination": "https://ais-dev-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app/uploads/$1" },
+    { "source": "/api/(.*)", "destination": "https://ais-pre-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app/api/$1" },
+    { "source": "/uploads/(.*)", "destination": "https://ais-pre-h2os7n5x5itkdnr2wj4dcq-517503358283.asia-east1.run.app/uploads/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
