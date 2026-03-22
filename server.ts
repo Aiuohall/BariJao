@@ -23,7 +23,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 console.log("Server starting at:", new Date().toISOString());
 console.log("Environment check:", {
@@ -40,14 +40,15 @@ console.log("Environment check:", {
 // Gemini Setup
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.VITE_GOOGLE_AI_API_KEY || "" });
 
-// Using VITE_GOOGLE_AI_API_KEY as JWT_SECRET as requested by user
-// Note: In production, it's better to use a dedicated private secret.
-const JWT_SECRET = process.env.VITE_GOOGLE_AI_API_KEY || process.env.JWT_SECRET || "barijao_secret_key_2026";
+// JWT Secret (use dedicated secret if available)
+const JWT_SECRET = process.env.JWT_SECRET || process.env.VITE_GOOGLE_AI_API_KEY || "barijao_secret_key_2026";
 
 app.use(cors());
 app.use(express.json());
 
-// --- Health Check (Moved to top for priority) ---
+// ============================================================
+// 1. SIMPLE HEALTH CHECK (before any middleware that could fail)
+// ============================================================
 app.get("/api/health", async (req, res) => {
   console.log("Health check request received at:", new Date().toISOString());
   try {
@@ -84,19 +85,17 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-app.get("/health", (req, res) => {
-  res.status(200).send({ status: "ok", timestamp: new Date().toISOString() });
-});
+// Simple test endpoint
+app.get("/test", (req, res) => res.send("OK"));
 
 // Serve uploads folder
 app.use("/uploads", express.static(uploadDir));
 
-// --- SIMPLE HEALTH CHECK (BEFORE ANYTHING ELSE) ---
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// ============================================================
+// 2. MIDDLEWARE & ROUTES (all API routes go here)
+// ============================================================
 
-// --- Middleware ---
+// --- Auth Middleware ---
 const authenticate = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Unauthorized" });
@@ -124,15 +123,13 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
-// --- Auth Routes ---
-
+// ==================== AUTH ROUTES ====================
 app.post("/api/auth/register", async (req, res) => {
   const { name, email, phone, password } = req.body;
   if (!name || !email || !phone || !password) return res.status(400).json({ error: "All fields are required" });
 
   const lowerEmail = email.toLowerCase();
   
-  // Check if user exists
   const { data: existingUser } = await supabase.from('users').select('id').eq('email', lowerEmail).single();
   if (existingUser) return res.status(400).json({ error: "Email already registered" });
 
@@ -148,7 +145,6 @@ app.post("/api/auth/register", async (req, res) => {
 
   if (regError) return res.status(500).json({ error: regError.message });
 
-  // Generate OTP for registration
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
@@ -176,7 +172,6 @@ app.post("/api/auth/login", async (req, res) => {
   const isValid = await bcrypt.compare(password, user.password_hash);
   if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
 
-  // Generate OTP for login
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
@@ -207,7 +202,6 @@ app.post("/api/auth/verify-otp", async (req, res) => {
 
   if (!otpData || otpError) return res.status(401).json({ error: "Invalid or expired OTP" });
 
-  // Mark OTP as used by deleting it (since there's no 'used' column in the provided SQL)
   await supabase.from('otp_codes').delete().eq('id', otpData.id);
 
   const { data: user } = await supabase.from('users').select('*').eq('email', lowerEmail).single();
@@ -216,15 +210,12 @@ app.post("/api/auth/verify-otp", async (req, res) => {
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 });
 
-// Admin login route
 app.post("/api/auth/admin-login", async (req, res) => {
   const { adminId, password } = req.body;
   
-  // Check if admin identifier exists in admins table
   const { data: adminRecord } = await supabase.from('admins').select('*').eq('admin_identifier', adminId).single();
   
   if (adminRecord) {
-    // Find the user with role 'admin'
     const { data: user } = await supabase.from('users').select('*').eq('role', 'admin').limit(1).single();
     
     if (user && await bcrypt.compare(password, user.password_hash)) {
@@ -237,8 +228,7 @@ app.post("/api/auth/admin-login", async (req, res) => {
   res.status(401).json({ error: "Invalid admin credentials" });
 });
 
-// --- Profile Routes ---
-
+// ==================== PROFILE ROUTES ====================
 app.get("/api/profile", authenticate, async (req: any, res) => {
   const { data: user, error } = await supabase.from('users').select('*').eq('id', req.user.id).single();
   if (!user || error) return res.status(404).json({ error: "User not found" });
@@ -265,8 +255,7 @@ app.put("/api/profile/password", authenticate, async (req: any, res) => {
   res.json({ message: "Password updated successfully" });
 });
 
-// --- Ticket Marketplace Routes ---
-
+// ==================== TICKET MARKETPLACE ====================
 app.get("/api/tickets", async (req, res) => {
   const { from, to, date } = req.query;
   
@@ -286,7 +275,6 @@ app.post("/api/tickets", authenticate, upload.single("image"), async (req: any, 
   const { transport_type, operator_name, from_location, to_location, journey_date, seat_number, original_price, asking_price, ticket_purchase_date } = req.body;
   const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
-  // Check for duplicates
   const { data: existing } = await supabase.from('tickets')
     .select('id')
     .eq('seller_id', req.user.id)
@@ -350,8 +338,7 @@ app.delete("/api/tickets/:id", authenticate, async (req: any, res) => {
   res.json({ success: true });
 });
 
-// --- Buying System ---
-
+// ==================== BUYING SYSTEM ====================
 app.post("/api/tickets/:id/buy", authenticate, async (req: any, res) => {
   const { id } = req.params;
   const { payment_method, transaction_reference } = req.body;
@@ -376,14 +363,12 @@ app.post("/api/tickets/:id/buy", authenticate, async (req: any, res) => {
 
   if (transError) return res.status(500).json({ error: transError.message });
 
-  // Update ticket status
   await supabase.from('tickets').update({ status: "sold" }).eq('id', id);
 
   res.json({ message: "Purchase successful", transaction: newTransaction });
 });
 
-// --- Rating System ---
-
+// ==================== RATING SYSTEM ====================
 app.post("/api/ratings", authenticate, async (req: any, res) => {
   const { ticket_id, rating, review } = req.body;
 
@@ -399,7 +384,7 @@ app.post("/api/ratings", authenticate, async (req: any, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
 
-  // Update seller rating
+  // Update seller rating and count
   const { data: allRatings } = await supabase.from('ratings').select('rating').eq('user_id', ticket.seller_id);
   if (allRatings && allRatings.length > 0) {
     const avg = allRatings.reduce((acc, r) => acc + r.rating, 0) / allRatings.length;
@@ -412,8 +397,7 @@ app.post("/api/ratings", authenticate, async (req: any, res) => {
   res.json({ success: true });
 });
 
-// --- Messaging System ---
-
+// ==================== MESSAGING ====================
 app.get("/api/messages/conversations", authenticate, async (req: any, res) => {
   const { data: messages, error } = await supabase.from('messages')
     .select('*, ticket:tickets(transport_type, operator_name), sender:users!messages_sender_id_fkey(name), receiver:users!messages_receiver_id_fkey(name)')
@@ -450,16 +434,13 @@ app.post("/api/messages", authenticate, async (req: any, res) => {
   res.json({ success: true });
 });
 
-// --- Admin Routes ---
-
+// ==================== ADMIN ROUTES ====================
 app.get("/api/admin/users", authenticate, isAdmin, async (req, res) => {
   const { data: users } = await supabase.from('users').select('*').order('created_at', { ascending: false });
   res.json(users);
 });
 
 app.post("/api/admin/users/:id/ban", authenticate, isAdmin, async (req, res) => {
-  // The provided SQL schema does not have a 'banned' column in users table
-  // We will skip this action for now
   res.json({ success: true, message: "Ban action skipped as column is missing in schema" });
 });
 
@@ -469,8 +450,6 @@ app.get("/api/admin/tickets", authenticate, isAdmin, async (req, res) => {
 });
 
 app.post("/api/admin/tickets/:id/verify", authenticate, isAdmin, async (req, res) => {
-  // The provided SQL schema does not have a 'verified' column in tickets table
-  // We will update the status to 'available' as a form of verification
   await supabase.from('tickets').update({ status: "available" }).eq('id', req.params.id);
   res.json({ success: true });
 });
@@ -482,8 +461,7 @@ app.get("/api/admin/transactions", authenticate, isAdmin, async (req, res) => {
   res.json(transactions);
 });
 
-// --- AI Features ---
-
+// ==================== AI FEATURES ====================
 app.post("/api/ai/generate-description", authenticate, async (req, res) => {
   const { ticketDetails } = req.body;
   try {
@@ -497,8 +475,7 @@ app.post("/api/ai/generate-description", authenticate, async (req, res) => {
   }
 });
 
-// --- Dashboard Routes ---
-
+// ==================== DASHBOARD ROUTES ====================
 app.get("/api/user/dashboard", authenticate, async (req: any, res) => {
   const { data: listings } = await supabase.from('tickets').select('*').eq('seller_id', req.user.id);
   const { data: purchases } = await supabase.from('transactions')
@@ -520,29 +497,30 @@ app.get("/api/dashboard/purchases", authenticate, async (req: any, res) => {
   res.json(purchases);
 });
 
-// --- Cron-like check for expired tickets ---
+// ==================== EXPIRED TICKETS CLEANUP ====================
 const cleanupExpiredTickets = async () => {
   const today = new Date().toISOString().split('T')[0];
   await supabase.from('tickets').update({ status: 'expired' }).lt('journey_date', today).neq('status', 'sold');
 };
-setInterval(cleanupExpiredTickets, 1000 * 60 * 60); // Every hour
+setInterval(cleanupExpiredTickets, 1000 * 60 * 60);
 
-// --- Global Error Handler ---
+// ==================== GLOBAL ERROR HANDLER ====================
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("Global Error Handler:", err);
   res.status(500).json({ error: "Internal Server Error", message: err.message });
 });
 
-// --- Test Route ---
-app.get('/test', (req, res) => res.send('OK'));
-
-// --- Vite middleware ---
+// ==================== VITE MIDDLEWARE (for serving frontend) ====================
 if (process.env.NODE_ENV !== "production") {
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: "spa",
-  });
-  app.use(vite.middlewares);
+  try {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } catch (error) {
+    console.error("Failed to create Vite server:", error);
+  }
 } else {
   app.use(express.static(path.join(__dirname, "dist")));
   app.get("*", (req, res) => {
@@ -550,19 +528,11 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
+// ==================== START SERVER (unless on Vercel) ====================
 if (process.env.VERCEL !== "1") {
-  if (process.env.NODE_ENV !== "production") {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log('Server is running on port 3000');
-    });
-  } else {
-    // In production (Vercel/Cloud Run), the platform handles the port
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log('Server is running on port 3000');
-    });
-  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 }
 
 export default app;
