@@ -259,7 +259,7 @@ app.put("/api/profile/password", authenticate, async (req: any, res) => {
 app.get("/api/tickets", async (req, res) => {
   const { from, to, date } = req.query;
   
-  let query = supabase.from('tickets').select('*, seller:users(name, rating, rating_count, is_verified)').eq('status', 'available');
+  let query = supabase.from('tickets').select('*, seller:users(name)').eq('status', 'available');
 
   if (from) query = query.ilike('from_location', `%${from}%`);
   if (to) query = query.ilike('to_location', `%${to}%`);

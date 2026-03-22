@@ -82,6 +82,16 @@ CREATE TABLE IF NOT EXISTS otp_codes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Ratings Table
+CREATE TABLE IF NOT EXISTS ratings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    reviewer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    review TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Listings Table
 CREATE TABLE IF NOT EXISTS listings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -142,3 +152,10 @@ CREATE POLICY "Allow all for messages" ON messages FOR ALL USING (true) WITH CHE
 -- Transactions Policies
 DROP POLICY IF EXISTS "Allow all for transactions" ON transactions;
 CREATE POLICY "Allow all for transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
+
+-- Ratings Policies
+ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read access for ratings" ON ratings;
+CREATE POLICY "Allow public read access for ratings" ON ratings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow users to create ratings" ON ratings;
+CREATE POLICY "Allow users to create ratings" ON ratings FOR INSERT WITH CHECK (true);
