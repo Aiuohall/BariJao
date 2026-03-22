@@ -48,8 +48,12 @@ const ServerStatus = () => {
             console.log('Server is still starting up...');
           }
         }
+      } else {
+        console.error('Health check failed with status:', res.status);
       }
-    } catch (e) {}
+    } catch (e: any) {
+      console.error('Health check error:', e.message);
+    }
     setStatus('offline');
     setDbStatus('error');
   };
@@ -614,7 +618,10 @@ const Home = () => {
                     {ticket.seller?.name?.[0] || 'U'}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{ticket.seller?.name || 'User'}</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-sm font-bold text-gray-900">{ticket.seller?.name || 'User'}</p>
+                      {ticket.seller?.is_verified && <Shield className="w-3 h-3 text-emerald-500 fill-emerald-500" />}
+                    </div>
                     <div className="flex items-center gap-1">
                       <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                       <p className="text-[10px] text-gray-400 font-medium">Rating: {ticket.seller?.rating || '5.0'} ({ticket.seller?.rating_count || 0})</p>

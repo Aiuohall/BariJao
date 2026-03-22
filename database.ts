@@ -80,7 +80,7 @@ export const db = {
             this._query = `SELECT count(*) as count FROM ${table}`;
           } else if (query.includes('seller:users')) {
             // Join mock for tickets and users
-            this._query = `SELECT tickets.*, users.name as seller_name, users.rating as seller_rating, users.rating_count as seller_rating_count FROM tickets JOIN users ON tickets.seller_id = users.id`;
+            this._query = `SELECT tickets.*, users.name as seller_name, users.rating as seller_rating, users.rating_count as seller_rating_count, users.is_verified as seller_is_verified FROM tickets JOIN users ON tickets.seller_id = users.id`;
           } else if (query.includes('ticket:tickets')) {
             // Join mock for messages, tickets, and users
             this._query = `SELECT messages.*, tickets.transport_type as ticket_transport_type, tickets.operator_name as ticket_operator_name, sender.name as sender_name, receiver.name as receiver_name FROM messages JOIN tickets ON messages.ticket_id = tickets.id JOIN users as sender ON messages.sender_id = sender.id JOIN users as receiver ON messages.receiver_id = receiver.id`;

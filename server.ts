@@ -25,6 +25,14 @@ if (!fs.existsSync(uploadDir)) {
 const app = express();
 const PORT = 3000;
 
+console.log("Environment check:", {
+  VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+  SUPABASE_URL: !!process.env.SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
+  SUPABASE_KEY: !!process.env.SUPABASE_KEY,
+  GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
+});
+
 // Gemini Setup
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.VITE_GOOGLE_AI_API_KEY || "" });
 
@@ -44,6 +52,12 @@ app.get("/api/health", async (req, res) => {
     res.status(200).send({ 
       status: "ok", 
       database: useSupabase ? "connected (Supabase)" : "connected (SQLite)", 
+      env: {
+        VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
+        SUPABASE_KEY: !!process.env.SUPABASE_KEY,
+      },
       timestamp: new Date().toISOString() 
     });
   } catch (e: any) {
@@ -53,6 +67,12 @@ app.get("/api/health", async (req, res) => {
       database: "error", 
       error: e.message, 
       details: e.cause ? e.cause.message : undefined,
+      env: {
+        VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
+        SUPABASE_KEY: !!process.env.SUPABASE_KEY,
+      },
       timestamp: new Date().toISOString() 
     });
   }
@@ -239,7 +259,7 @@ app.put("/api/profile/password", authenticate, async (req: any, res) => {
 app.get("/api/tickets", async (req, res) => {
   const { from, to, date } = req.query;
   
-  let query = supabase.from('tickets').select('*, seller:users(name, rating, rating_count)').eq('status', 'available');
+  let query = supabase.from('tickets').select('*, seller:users(name, rating, rating_count, is_verified)').eq('status', 'available');
 
   if (from) query = query.ilike('from_location', `%${from}%`);
   if (to) query = query.ilike('to_location', `%${to}%`);
