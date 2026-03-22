@@ -25,6 +25,7 @@ if (!fs.existsSync(uploadDir)) {
 const app = express();
 const PORT = 3000;
 
+console.log("Server starting at:", new Date().toISOString());
 console.log("Environment check:", {
   VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
   SUPABASE_URL: !!process.env.SUPABASE_URL,
@@ -32,6 +33,8 @@ console.log("Environment check:", {
   SUPABASE_KEY: !!process.env.SUPABASE_KEY,
   GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
   VITE_GOOGLE_AI_API_KEY: !!process.env.VITE_GOOGLE_AI_API_KEY,
+  VERCEL: !!process.env.VERCEL,
+  NODE_ENV: process.env.NODE_ENV
 });
 
 // Gemini Setup
@@ -44,8 +47,9 @@ const JWT_SECRET = process.env.VITE_GOOGLE_AI_API_KEY || process.env.JWT_SECRET 
 app.use(cors());
 app.use(express.json());
 
+// --- Health Check (Moved to top for priority) ---
 app.get("/api/health", async (req, res) => {
-  console.log("Health check request received");
+  console.log("Health check request received at:", new Date().toISOString());
   try {
     // Check database connection
     const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
@@ -57,10 +61,6 @@ app.get("/api/health", async (req, res) => {
         database: "error", 
         error: error.message,
         useSupabase,
-        env: {
-          SUPABASE_URL: !!process.env.SUPABASE_URL,
-          SUPABASE_KEY: !!process.env.SUPABASE_KEY,
-        },
         timestamp: new Date().toISOString()
       });
     }
@@ -70,12 +70,6 @@ app.get("/api/health", async (req, res) => {
       status: "ok", 
       database: useSupabase ? "connected (Supabase)" : "connected (SQLite)", 
       useSupabase,
-      env: {
-        SUPABASE_URL: !!process.env.SUPABASE_URL,
-        SUPABASE_KEY: !!process.env.SUPABASE_KEY,
-        VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
-        VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
-      },
       timestamp: new Date().toISOString() 
     });
   } catch (e: any) {
@@ -528,6 +522,12 @@ const cleanupExpiredTickets = async () => {
 };
 setInterval(cleanupExpiredTickets, 1000 * 60 * 60); // Every hour
 
+// --- Global Error Handler ---
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Global Error Handler:", err);
+  res.status(500).json({ error: "Internal Server Error", message: err.message });
+});
+
 // --- Test Route ---
 app.get('/test', (req, res) => res.send('OK'));
 
@@ -545,17 +545,19 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log('Server is running on port 3000');
-  });
-} else {
-  // In production (Vercel/Cloud Run), the platform handles the port
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log('Server is running on port 3000');
-  });
+if (process.env.VERCEL !== "1") {
+  if (process.env.NODE_ENV !== "production") {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log('Server is running on port 3000');
+    });
+  } else {
+    // In production (Vercel/Cloud Run), the platform handles the port
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log('Server is running on port 3000');
+    });
+  }
 }
 
 export default app;
