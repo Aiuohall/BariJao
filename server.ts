@@ -23,7 +23,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 console.log("Server starting at:", new Date().toISOString());
 console.log("Environment check:", {
@@ -47,37 +47,35 @@ app.use(cors());
 app.use(express.json());
 
 // ============================================================
-// 1. SIMPLE HEALTH CHECK (before any middleware that could fail)
+// 1. HEALTH CHECK (always returns JSON)
 // ============================================================
 app.get("/api/health", async (req, res) => {
   console.log("Health check request received at:", new Date().toISOString());
   try {
     // Check database connection
-    const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
-    
-    if (error) {
-      console.error("Database error in health check:", error);
-      return res.status(200).send({ 
-        status: "ok", 
-        database: "error", 
-        error: error.message,
-        useSupabase,
-        timestamp: new Date().toISOString()
-      });
+    let dbStatus = "unknown";
+    try {
+      const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+      if (error) {
+        dbStatus = `error: ${error.message}`;
+      } else {
+        dbStatus = useSupabase ? "connected (Supabase)" : "connected (SQLite)";
+      }
+    } catch (dbErr: any) {
+      dbStatus = `critical_error: ${dbErr.message}`;
     }
-
-    console.log("Health check successful, database:", useSupabase ? "Supabase" : "SQLite");
-    res.status(200).send({ 
+    
+    res.status(200).json({ 
       status: "ok", 
-      database: useSupabase ? "connected (Supabase)" : "connected (SQLite)", 
+      database: dbStatus,
       useSupabase,
       timestamp: new Date().toISOString() 
     });
   } catch (e: any) {
-    console.error("Critical error in health check:", e);
-    res.status(200).send({ 
+    console.error("Critical error in health check handler:", e);
+    res.status(200).json({ 
       status: "ok", 
-      database: "critical_error", 
+      database: "handler_error", 
       error: e.message, 
       useSupabase,
       timestamp: new Date().toISOString()
