@@ -17,12 +17,13 @@ console.log('VITE_SUPABASE_URL value:', process.env.VITE_SUPABASE_URL ? process.
 console.log('VITE_SUPABASE_ANON_KEY value:', process.env.VITE_SUPABASE_ANON_KEY ? process.env.VITE_SUPABASE_ANON_KEY.substring(0, 10) + '...' : 'undefined');
 
 console.log('Supabase config loaded:', {
-  url: supabaseUrl.substring(0, 15) + '...',
-  key: supabaseKey.substring(0, 10) + '...'
+  url: supabaseUrl ? supabaseUrl.substring(0, 15) + '...' : 'MISSING',
+  key: supabaseKey ? supabaseKey.substring(0, 10) + '...' : 'MISSING',
+  source: process.env.SUPABASE_URL ? 'SUPABASE_URL' : (process.env.VITE_SUPABASE_URL ? 'VITE_SUPABASE_URL' : 'HARDCODED')
 });
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Supabase URL or Key is missing. Check your .env file.');
+  console.error('Supabase URL or Key is missing. Check your environment variables.');
 }
 
 let supabaseClient;

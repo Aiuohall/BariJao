@@ -1,4 +1,5 @@
-import Database from 'better-sqlite3';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { supabase } from './supabase.ts';
 import fs from 'fs';
 import path from 'path';
@@ -8,13 +9,19 @@ import crypto from 'crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize SQLite
-const dbPath = path.join(__dirname, 'barijao.db');
-const sqlite = new Database(dbPath);
+// Initialize SQLite lazily
+let sqlite: any = null;
 
-// Initialize schema if SQLite is used
 const initSqlite = () => {
+  if (sqlite) return;
   try {
+    const Database = require('better-sqlite3');
+    const isVercel = !!process.env.VERCEL;
+    const dbDir = isVercel ? '/tmp' : __dirname;
+    const dbPath = path.join(dbDir, 'barijao.db');
+    
+    sqlite = new Database(dbPath);
+    
     const schema = fs.readFileSync(path.join(__dirname, 'supabase.sql'), 'utf8');
     // Remove all RLS and policy statements (they are PostgreSQL specific)
     const cleanedSchema = schema
@@ -27,13 +34,16 @@ const initSqlite = () => {
       .replace(/\n\s*\n/g, '\n'); // remove empty lines
 
     sqlite.exec(cleanedSchema);
-    console.log('SQLite schema initialized');
+    console.log(`SQLite schema initialized at ${dbPath}`);
   } catch (e) {
     console.error('Failed to initialize SQLite schema:', e);
   }
 };
 
-let useSupabase = false;
+export const dbStatus = {
+  useSupabase: false,
+  isReady: false
+};
 
 const checkSupabase = async () => {
   try {
@@ -43,25 +53,29 @@ const checkSupabase = async () => {
     const { error } = await supabase.from('users').select('count', { count: 'exact', head: true });
     if (error) {
       console.warn('Supabase connection failed, falling back to SQLite:', error.message);
-      useSupabase = false;
+      dbStatus.useSupabase = false;
       initSqlite();
     } else {
       console.log('Using Supabase as primary database');
-      useSupabase = true;
+      dbStatus.useSupabase = true;
     }
   } catch (e: any) {
     console.warn('Supabase connection error, falling back to SQLite:', e.message);
-    useSupabase = false;
+    dbStatus.useSupabase = false;
     initSqlite();
+  } finally {
+    dbStatus.isReady = true;
   }
 };
 
 // Initial check
-checkSupabase();
+checkSupabase().then(() => {
+  console.log('Database initialization complete. Status:', JSON.stringify(dbStatus));
+});
 
 export const db = {
   from: (table: string) => {
-    if (useSupabase) {
+    if (dbStatus.useSupabase) {
       return supabase.from(table);
     } else {
       // Mock Supabase-like interface for SQLite
@@ -273,4 +287,4 @@ export const db = {
   }
 };
 
-export { useSupabase };
+

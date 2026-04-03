@@ -38,7 +38,9 @@ const ServerStatus = () => {
           const data = await res.json();
           if (data.status === 'ok') {
             setStatus('online');
-            setDbStatus(data.database.startsWith('connected') ? 'connected' : 'error');
+            // data.database is now { useSupabase: boolean, isReady: boolean, connected?: boolean }
+            const isDbOk = typeof data.database === 'object' ? (data.database.connected || data.database.isReady) : false;
+            setDbStatus(isDbOk ? 'connected' : 'error');
             return;
           }
         } else {

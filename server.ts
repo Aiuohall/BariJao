@@ -1,4 +1,5 @@
 import express from "express";
+console.log("SERVER.TS: File execution started");
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,7 +10,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
-import { db as supabase, useSupabase } from "./database.ts";
+import { db as supabase, dbStatus } from "./database.ts";
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ if (!fs.existsSync(uploadDir)) {
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+console.log(`PORT configuration: process.env.PORT=${process.env.PORT}, using ${PORT}`);
 
 console.log("Server starting at:", new Date().toISOString());
 console.log("Environment check:", {
@@ -51,24 +53,24 @@ app.use(express.json());
 // ============================================================
 app.get("/api/health", async (req, res) => {
   console.log("Health check request received at:", new Date().toISOString());
+  console.log("Current dbStatus:", JSON.stringify(dbStatus));
   try {
     // Check database connection
-    let dbStatus = "unknown";
+    let dbInfo: any = { ...dbStatus };
     try {
       const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
       if (error) {
-        dbStatus = `error: ${error.message}`;
+        dbInfo.error = error.message;
       } else {
-        dbStatus = useSupabase ? "connected (Supabase)" : "connected (SQLite)";
+        dbInfo.connected = true;
       }
     } catch (dbErr: any) {
-      dbStatus = `critical_error: ${dbErr.message}`;
+      dbInfo.critical_error = dbErr.message;
     }
     
     res.status(200).json({ 
       status: "ok", 
-      database: dbStatus,
-      useSupabase,
+      database: dbInfo,
       timestamp: new Date().toISOString() 
     });
   } catch (e: any) {
@@ -77,7 +79,7 @@ app.get("/api/health", async (req, res) => {
       status: "ok", 
       database: "handler_error", 
       error: e.message, 
-      useSupabase,
+      dbStatus,
       timestamp: new Date().toISOString()
     });
   }
@@ -508,29 +510,36 @@ app.use((err: any, req: any, res: any, next: any) => {
   res.status(500).json({ error: "Internal Server Error", message: err.message });
 });
 
-// ==================== VITE MIDDLEWARE (for serving frontend) ====================
-if (process.env.NODE_ENV !== "production") {
-  try {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
+// ==================== START SERVER (unless on Vercel) ====================
+async function startServer() {
+  if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+      console.log("Vite middleware integrated.");
+    } catch (error) {
+      console.error("Failed to create Vite server:", error);
+    }
+  } else if (process.env.NODE_ENV === "production") {
+    app.use(express.static(path.join(__dirname, "dist")));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
-    app.use(vite.middlewares);
-  } catch (error) {
-    console.error("Failed to create Vite server:", error);
   }
-} else {
-  app.use(express.static(path.join(__dirname, "dist")));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "dist", "index.html"));
-  });
+
+  if (process.env.VERCEL !== "1") {
+    console.log(`Attempting to start server on port ${PORT}...`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  }
 }
 
-// ==================== START SERVER (unless on Vercel) ====================
-if (process.env.VERCEL !== "1") {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+startServer().catch(err => {
+  console.error("Failed to start server:", err);
+});
 
 export default app;
