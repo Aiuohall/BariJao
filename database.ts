@@ -14,6 +14,9 @@ let sqlite: any = null;
 
 const initSqlite = () => {
   if (sqlite) return;
+  // If Supabase is working, we don't need SQLite
+  if (dbStatus.useSupabase) return;
+
   try {
     const Database = require('better-sqlite3');
     const isVercel = !!process.env.VERCEL;
@@ -34,9 +37,9 @@ const initSqlite = () => {
       .replace(/\n\s*\n/g, '\n'); // remove empty lines
 
     sqlite.exec(cleanedSchema);
-    console.log(`SQLite schema initialized at ${dbPath}`);
+    console.log(`SQLite fallback initialized at ${dbPath}`);
   } catch (e) {
-    console.error('Failed to initialize SQLite schema:', e);
+    console.error('Failed to initialize SQLite fallback:', e);
   }
 };
 
@@ -46,17 +49,31 @@ export const dbStatus = {
 };
 
 const checkSupabase = async () => {
+  const hasUrl = !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+  const hasKey = !!(process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+
+  if (!hasUrl || !hasKey) {
+    console.warn('Supabase credentials missing, using SQLite fallback');
+    dbStatus.useSupabase = false;
+    initSqlite();
+    dbStatus.isReady = true;
+    return;
+  }
+
   try {
     if (!supabase || typeof supabase.from !== 'function') {
       throw new Error('Supabase client not initialized correctly');
     }
+    
+    console.log('Supabase credentials found, testing connection...');
     const { error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+    
     if (error) {
       console.warn('Supabase connection failed, falling back to SQLite:', error.message);
       dbStatus.useSupabase = false;
       initSqlite();
     } else {
-      console.log('Using Supabase as primary database');
+      console.log('Supabase connection successful, using as primary database');
       dbStatus.useSupabase = true;
     }
   } catch (e: any) {
