@@ -15,6 +15,15 @@ services:
       # Signs login tokens. Render generates a random value on first deploy.
       - key: JWT_SECRET
         generateValue: true
+      # Email delivery for OTP codes (Gmail). Set these in the dashboard:
+      #   SMTP_USER = your Gmail address
+      #   SMTP_PASS = a Google "App Password" (not your normal password)
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       # Optional: enables the AI "generate description" feature. Set in dashboard.
       - key: VITE_GOOGLE_AI_API_KEY
         sync: false

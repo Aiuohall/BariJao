@@ -11,6 +11,7 @@ import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import { db as supabase, dbStatus } from "./database.ts";
+import { sendOtpEmail } from "./mailer.ts";
 
 dotenv.config();
 
@@ -157,7 +158,7 @@ app.post("/api/auth/register", async (req, res) => {
 
   if (otpError) console.error("OTP Insert Error:", otpError);
 
-  console.log(`Registration OTP for ${lowerEmail}: ${otp}`);
+  await sendOtpEmail(lowerEmail, otp);
   res.json({ message: "OTP sent to your email", email: lowerEmail, requiresOTP: true });
 });
 
@@ -182,7 +183,7 @@ app.post("/api/auth/login", async (req, res) => {
     otp_type: 'login'
   }]);
 
-  console.log(`OTP for ${lowerEmail}: ${otp}`);
+  await sendOtpEmail(lowerEmail, otp);
   res.json({ message: "OTP sent to your email", email: lowerEmail, requiresOTP: true });
 });
 
