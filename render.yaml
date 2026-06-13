@@ -1,0 +1,25 @@
+# Render Blueprint for BariJao. See https://render.com/docs/blueprint-spec
+# Deploy: push to GitHub, then on Render -> New -> Blueprint, pick this repo.
+services:
+  - type: web
+    name: barijao
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Signs login tokens. Render generates a random value on first deploy.
+      - key: JWT_SECRET
+        generateValue: true
+      # Optional: enables the AI "generate description" feature. Set in dashboard.
+      - key: VITE_GOOGLE_AI_API_KEY
+        sync: false
+      # Optional: switch from local SQLite to Supabase by setting these in the dashboard.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
