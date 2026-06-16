@@ -158,7 +158,8 @@ app.post("/api/auth/register", async (req, res) => {
 
   if (otpError) console.error("OTP Insert Error:", otpError);
 
-  await sendOtpEmail(lowerEmail, otp);
+  // Fire-and-forget: don't block the response on email delivery.
+  sendOtpEmail(lowerEmail, otp).catch((e) => console.error("sendOtpEmail error:", e));
   res.json({ message: "OTP sent to your email", email: lowerEmail, requiresOTP: true });
 });
 
@@ -183,7 +184,8 @@ app.post("/api/auth/login", async (req, res) => {
     otp_type: 'login'
   }]);
 
-  await sendOtpEmail(lowerEmail, otp);
+  // Fire-and-forget: don't block the response on email delivery.
+  sendOtpEmail(lowerEmail, otp).catch((e) => console.error("sendOtpEmail error:", e));
   res.json({ message: "OTP sent to your email", email: lowerEmail, requiresOTP: true });
 });
 
