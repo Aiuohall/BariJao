@@ -1370,21 +1370,46 @@ const UserDashboard = () => {
   const [data, setData] = useState<any>({ listings: [], purchases: [] });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      const fetchDashboard = async () => {
-        try {
-          const d = await apiService.getUserDashboard();
-          setData({ listings: d?.listings || [], purchases: d?.purchases || [] });
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchDashboard();
+  const fetchDashboard = async () => {
+    try {
+      const d = await apiService.getUserDashboard();
+      setData({ listings: d?.listings || [], purchases: d?.purchases || [] });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (user) fetchDashboard();
   }, [user]);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this listing? This cannot be undone.')) return;
+    try {
+      await apiService.deleteTicket(id);
+      setData((prev: any) => ({ ...prev, listings: prev.listings.filter((l: any) => l.id !== id) }));
+    } catch (e: any) {
+      alert(e.message || 'Failed to delete');
+    }
+  };
+
+  const handleEditPrice = async (ticket: any) => {
+    const input = window.prompt('New asking price (৳):', String(ticket.asking_price));
+    if (input === null) return;
+    const price = parseFloat(input);
+    if (isNaN(price) || price <= 0) { alert('Please enter a valid price.'); return; }
+    try {
+      await apiService.updateTicket(ticket.id, { asking_price: price });
+      setData((prev: any) => ({
+        ...prev,
+        listings: prev.listings.map((l: any) => (l.id === ticket.id ? { ...l, asking_price: price } : l)),
+      }));
+    } catch (e: any) {
+      alert(e.message || 'Failed to update');
+    }
+  };
 
   if (!user) return <Navigate to="/login" />;
 
@@ -1420,7 +1445,11 @@ const UserDashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-emerald-600">৳{ticket.asking_price}</p>
-                    <Link to={`/ticket/${ticket.id}`} className="text-xs text-gray-400 hover:underline">View</Link>
+                    <div className="flex items-center justify-end gap-2 mt-1">
+                      <Link to={`/ticket/${ticket.id}`} className="text-xs text-gray-400 hover:underline">View</Link>
+                      <button onClick={() => handleEditPrice(ticket)} className="text-xs text-emerald-600 font-medium hover:underline">Edit price</button>
+                      <button onClick={() => handleDelete(ticket.id)} className="text-xs text-red-500 font-medium hover:underline">Delete</button>
+                    </div>
                   </div>
                 </div>
               ))

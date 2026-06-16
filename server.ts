@@ -274,9 +274,12 @@ app.get("/api/tickets", async (req, res) => {
   res.json(tickets);
 });
 
-app.post("/api/tickets", authenticate, upload.single("image"), async (req: any, res) => {
+// Accept the image under any field name (the client sends "ticket_image"),
+// so an unexpected field name can never crash the upload with a 500.
+app.post("/api/tickets", authenticate, upload.any(), async (req: any, res) => {
   const { transport_type, operator_name, from_location, to_location, journey_date, seat_number, original_price, asking_price, ticket_purchase_date } = req.body;
-  const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+  const file = req.files && req.files[0];
+  const image_url = file ? `/uploads/${file.filename}` : null;
 
   const { data: existing } = await supabase.from('tickets')
     .select('id')
@@ -526,7 +529,7 @@ if (process.env.NODE_ENV === "production" && SELF_URL) {
 // ==================== GLOBAL ERROR HANDLER ====================
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("Global Error Handler:", err);
-  res.status(500).json({ error: "Internal Server Error", message: err.message });
+  res.status(500).json({ error: err.message || "Internal Server Error", message: err.message });
 });
 
 // ==================== START SERVER (unless on Vercel) ====================
