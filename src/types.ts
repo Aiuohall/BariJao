@@ -7,6 +7,7 @@ export interface User {
   rating: number;
   rating_count: number;
   banned: boolean;
+  avatar_url?: string | null;
   created_at: string;
 }
 

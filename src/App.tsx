@@ -1,5 +1,5 @@
 // BariJao v1.0.3 - Ticket Marketplace
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { TranslationProvider, useTranslation } from './TranslationContext';
 import { BANGLADESH_DISTRICTS } from './constants';
@@ -12,6 +12,56 @@ import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+// Round profile photo with an initial-letter fallback when no photo is set.
+const Avatar = ({ src, name, size = 40, className = '' }: { src?: string | null; name?: string; size?: number; className?: string }) => {
+  const initial = (name || 'U').charAt(0).toUpperCase();
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name || 'User'}
+        style={{ width: size, height: size }}
+        className={cn('rounded-full object-cover bg-gray-100', className)}
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
+      className={cn('rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center shrink-0', className)}
+    >
+      {initial}
+    </div>
+  );
+};
+
+// Downscale an image File to a small square data URL (keeps avatars tiny so they
+// fit in the database and load fast). Returns a JPEG data URL string.
+function fileToAvatarDataUrl(file: File, max = 256): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Invalid image'));
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Canvas not supported'));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // --- Components ---
@@ -142,8 +192,8 @@ const Navbar = () => {
                 <Link to="/sell" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.sell}</Link>
                 <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.dashboard}</Link>
                 <Link to="/messages" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.messages}</Link>
-                <Link to="/profile" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-1">
-                  <User className="w-4 h-4" /> Profile
+                <Link to="/profile" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-2">
+                  <Avatar src={user.avatar_url} name={user.name} size={26} /> Profile
                 </Link>
                 {user.role === 'admin' && (
                   <Link to="/admin" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-1">
@@ -610,15 +660,13 @@ const Home = () => {
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{t.seat}</p>
-                  <p className="text-sm font-bold text-gray-700">{ticket.seat_number}</p>
+                  <p className="text-sm font-bold text-gray-700">{ticket.seat_number || <span className="text-gray-400 inline-flex items-center gap-1"><Lock className="w-3 h-3" /> Hidden</span>}</p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-6 border-t border-gray-50">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-black text-sm">
-                    {ticket.seller?.name?.[0] || 'U'}
-                  </div>
+                  <Avatar src={ticket.seller?.avatar_url} name={ticket.seller?.name} size={40} />
                   <div>
                     <div className="flex items-center gap-1">
                       <p className="text-sm font-bold text-gray-900">{ticket.seller?.name || 'User'}</p>
@@ -656,33 +704,44 @@ const Home = () => {
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const [ticket, setTicket] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Who this chat thread is with. A buyer always talks to the seller. A seller
+  // opens a specific buyer's thread via ?with=<buyerId> (from the Messages page).
+  const isSeller = !!user && !!ticket && user.id === ticket.seller_id;
+  const withParam = searchParams.get('with');
+  const counterpartyId = isSeller ? withParam : ticket?.seller_id;
 
   useEffect(() => {
     fetchTicket();
   }, [id]);
 
   useEffect(() => {
-    if (user && ticket) {
+    if (user && ticket && counterpartyId) {
       fetchMessages();
       const interval = setInterval(fetchMessages, 3000);
       return () => clearInterval(interval);
     }
-  }, [user, ticket]);
+  }, [user, ticket, counterpartyId]);
 
   const fetchTicket = async () => {
     try {
-      const data = await apiService.getTickets({ from: '', to: '', date: '' }); // This is a hack, I should have getTicketById in apiService
-      // Actually I'll add getTicketById to apiService now.
-      const ticketData = await apiService.getTickets({ from: '', to: '', date: '' });
-      const found = ticketData.find((t: any) => t.id === id);
+      const found = await apiService.getTicketById(id!);
       setTicket(found);
     } catch (e) {
-      console.error(e);
+      // Safety net: fall back to finding it in the list endpoint.
+      try {
+        const all = await apiService.getTickets({ from: '', to: '', date: '' });
+        setTicket((all || []).find((t: any) => t.id === id) || null);
+      } catch (e2) {
+        console.error(e2);
+        setTicket(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -706,7 +765,7 @@ const TicketDetails = () => {
 
   const fetchMessages = async () => {
     try {
-      const data = await apiService.getMessages(id!);
+      const data = await apiService.getMessages(id!, counterpartyId || undefined);
       setMessages(data);
     } catch (e) {
       console.error(e);
@@ -716,11 +775,12 @@ const TicketDetails = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
+    if (!counterpartyId) return;
 
     try {
       await apiService.sendMessage({
         ticket_id: id,
-        receiver_id: ticket.seller_id,
+        receiver_id: counterpartyId,
         message: newMessage
       });
       setNewMessage('');
@@ -733,7 +793,7 @@ const TicketDetails = () => {
   if (loading) return <div className="p-20 text-center">Loading...</div>;
   if (!ticket) return <div className="p-20 text-center">Ticket not found</div>;
 
-  const isSeller = user?.id === ticket.user_id;
+  const locked = !!ticket.locked; // guest view: sensitive fields hidden
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -768,7 +828,7 @@ const TicketDetails = () => {
             </div>
             <div className="bg-gray-50 rounded-2xl p-4">
               <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Seat Number</p>
-              <p className="font-bold text-gray-900">{ticket.seat_number}</p>
+              <p className="font-bold text-gray-900">{locked ? <span className="text-gray-400 inline-flex items-center gap-1"><Lock className="w-3 h-3" /> Hidden</span> : ticket.seat_number}</p>
             </div>
             <div className="bg-gray-50 rounded-2xl p-4">
               <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Created At</p>
@@ -793,21 +853,17 @@ const TicketDetails = () => {
           )}
 
           <div className="space-y-4">
-            <h3 className="font-bold text-gray-900">Ticket Image Verification</h3>
+            <h3 className="font-bold text-gray-900">Ticket Image</h3>
             <div className="relative rounded-2xl overflow-hidden bg-gray-100 aspect-video flex items-center justify-center">
-              {ticket.ticket_image ? (
-                <>
-                  <img 
-                    src={ticket.ticket_image} 
-                    alt="Ticket" 
-                    className="w-full h-full object-contain blur-xl opacity-50"
-                  />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                    <Shield className="w-12 h-12 text-emerald-600 mb-4" />
-                    <p className="text-gray-900 font-bold mb-2">Sensitive Information Hidden</p>
-                    <p className="text-sm text-gray-500 max-w-xs">Full ticket image and QR codes are only visible to the buyer after purchase confirmation or to administrators for verification.</p>
-                  </div>
-                </>
+              {locked ? (
+                <div className="flex flex-col items-center justify-center p-6 text-center">
+                  <Lock className="w-12 h-12 text-emerald-600 mb-4" />
+                  <p className="text-gray-900 font-bold mb-2">Details Hidden</p>
+                  <p className="text-sm text-gray-500 max-w-xs">Log in to view the ticket photo, seat number, and seller contact.</p>
+                  <Link to="/login" className="mt-4 bg-emerald-600 text-white px-5 py-2 rounded-xl text-sm font-bold">Login</Link>
+                </div>
+              ) : ticket.ticket_image ? (
+                <img src={ticket.ticket_image} alt="Ticket" className="w-full h-full object-contain" />
               ) : (
                 <p className="text-gray-400">No image provided</p>
               )}
@@ -818,15 +874,16 @@ const TicketDetails = () => {
         {/* Seller Info */}
         <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold text-2xl">
-              {ticket.user?.name[0]}
-            </div>
+            <Avatar src={ticket.seller?.avatar_url} name={ticket.seller?.name} size={64} />
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{ticket.user?.name}</h3>
+              <h3 className="text-xl font-bold text-gray-900">{ticket.seller?.name || 'Seller'}</h3>
               <div className="flex items-center gap-2">
-                <span className="text-yellow-400">★★★★★</span>
-                <span className="text-sm text-gray-400">Seller Rating: {ticket.user?.rating}/5</span>
+                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <span className="text-sm text-gray-400">Rating: {ticket.seller?.rating ?? '5.0'}/5 ({ticket.seller?.rating_count ?? 0})</span>
               </div>
+              {ticket.seller?.phone && (
+                <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><Phone className="w-3 h-3" /> {ticket.seller.phone}</p>
+              )}
             </div>
           </div>
           <button className="text-red-500 text-sm font-bold hover:underline flex items-center gap-1">
@@ -848,6 +905,11 @@ const TicketDetails = () => {
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             <p className="text-gray-500 mb-4">You must be logged in to chat with the seller.</p>
             <Link to="/login" className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold">Login to Chat</Link>
+          </div>
+        ) : !counterpartyId ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <MessageSquare className="w-10 h-10 text-gray-200 mb-3" />
+            <p className="text-gray-500">This is your own listing. Open a buyer's message from the <Link to="/messages" className="text-emerald-600 font-bold">Messages</Link> page to reply.</p>
           </div>
         ) : (
           <>
@@ -933,13 +995,32 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMessage({ type: '', text: '' });
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file);
+      const updatedUser = await apiService.updateProfile({ avatar_url: dataUrl });
+      const token = localStorage.getItem('token') || '';
+      login(token, updatedUser);
+      setMessage({ type: 'success', text: 'Profile photo updated!' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update photo' });
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="bg-emerald-600 h-32 relative">
           <div className="absolute -bottom-12 left-8">
-            <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center border-4 border-white">
-              <User className="w-12 h-12 text-emerald-600" />
+            <div className="relative w-24 h-24">
+              <Avatar src={user?.avatar_url} name={user?.name} size={96} className="rounded-2xl border-4 border-white shadow-lg" />
+              <label className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-1.5 cursor-pointer shadow hover:bg-emerald-700" title="Change photo">
+                <Edit2 className="w-3.5 h-3.5" />
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              </label>
             </div>
           </div>
         </div>
@@ -1722,15 +1803,36 @@ const Messages = () => {
     const fetchConversations = async () => {
       try {
         const data = await apiService.getConversations();
-        setConversations(data);
+        const me = user?.id;
+        // Group the flat message list into one thread per (ticket + other person),
+        // keeping the latest message. Backend returns newest-first.
+        const map = new Map<string, any>();
+        (data || []).forEach((m: any) => {
+          const otherId = m.sender_id === me ? m.receiver_id : m.sender_id;
+          const otherUser = m.sender_id === me ? m.receiver : m.sender;
+          const key = `${m.ticket_id}__${otherId}`;
+          if (!map.has(key)) {
+            map.set(key, {
+              key,
+              ticketId: m.ticket_id,
+              otherId,
+              otherName: otherUser?.name || 'User',
+              otherAvatar: otherUser?.avatar_url,
+              ticket: m.ticket,
+              lastMessage: m.message,
+              lastAt: m.created_at,
+            });
+          }
+        });
+        setConversations(Array.from(map.values()));
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
       }
     };
-    fetchConversations();
-  }, []);
+    if (user) fetchConversations();
+  }, [user]);
 
   if (loading) return <div className="p-20 text-center">Loading...</div>;
 
@@ -1750,24 +1852,22 @@ const Messages = () => {
           <div className="divide-y divide-gray-50">
             {conversations.map((conv: any) => (
               <button
-                key={conv.ticket_id}
-                onClick={() => navigate(`/ticket/${conv.ticket_id}`)}
+                key={conv.key}
+                onClick={() => navigate(`/ticket/${conv.ticketId}?with=${conv.otherId}`)}
                 className="w-full p-6 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
               >
-                <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-                  <TicketIcon className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h3 className="font-bold text-gray-900">{conv.ticket?.operator_name || 'Ticket Chat'}</h3>
-                    <span className="text-xs text-gray-400">{new Date(conv.last_message_at).toLocaleDateString()}</span>
+                <Avatar src={conv.otherAvatar} name={conv.otherName} size={48} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-bold text-gray-900 truncate">{conv.otherName}</h3>
+                    <span className="text-xs text-gray-400 shrink-0">{new Date(conv.lastAt).toLocaleDateString()}</span>
                   </div>
-                  <p className="text-sm text-gray-500 truncate">{conv.last_message}</p>
-                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-wider">
-                    {conv.ticket?.from_location} → {conv.ticket?.to_location}
+                  <p className="text-sm text-gray-500 truncate">{conv.lastMessage}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-wider truncate">
+                    {conv.ticket?.operator_name} · {conv.ticket?.from_location} → {conv.ticket?.to_location}
                   </p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-300" />
+                <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
               </button>
             ))}
           </div>

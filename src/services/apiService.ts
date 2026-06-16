@@ -96,6 +96,13 @@ export const apiService = {
     return data;
   },
 
+  async getTicketById(id: string) {
+    const res = await fetch(`${API_BASE}/tickets/${id}`, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch ticket');
+    return data;
+  },
+
   async createTicket(formData: FormData) {
     const token = localStorage.getItem('token');
     const res = await fetch(`${API_BASE}/tickets`, {
@@ -172,8 +179,9 @@ export const apiService = {
     return data;
   },
 
-  async getMessages(ticketId: string) {
-    const res = await fetch(`${API_BASE}/messages/${ticketId}`, { headers: getHeaders() });
+  async getMessages(ticketId: string, withUser?: string) {
+    const qs = withUser ? `?with=${encodeURIComponent(withUser)}` : '';
+    const res = await fetch(`${API_BASE}/messages/${ticketId}${qs}`, { headers: getHeaders() });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to fetch chat');
     return data;

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     rating REAL DEFAULT 5.0,
     rating_count INTEGER DEFAULT 0,
     is_verified INTEGER DEFAULT 0,
+    avatar_url TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 

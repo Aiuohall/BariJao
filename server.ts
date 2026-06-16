@@ -210,7 +210,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
   const { data: user } = await supabase.from('users').select('*').eq('email', lowerEmail).single();
   
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, rating: user.rating, avatar_url: user.avatar_url } });
 });
 
 app.post("/api/auth/admin-login", async (req, res) => {
@@ -239,8 +239,12 @@ app.get("/api/profile", authenticate, async (req: any, res) => {
 });
 
 app.put("/api/profile", authenticate, async (req: any, res) => {
-  const { name } = req.body;
-  const { data: user, error } = await supabase.from('users').update({ name }).eq('id', req.user.id).select().single();
+  const { name, phone, avatar_url } = req.body;
+  const updates: any = {};
+  if (name !== undefined) updates.name = name;
+  if (phone !== undefined) updates.phone = phone;
+  if (avatar_url !== undefined) updates.avatar_url = avatar_url; // data URL string or null
+  const { data: user, error } = await supabase.from('users').update(updates).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(user);
 });
@@ -259,10 +263,33 @@ app.put("/api/profile/password", authenticate, async (req: any, res) => {
 });
 
 // ==================== TICKET MARKETPLACE ====================
-app.get("/api/tickets", async (req, res) => {
+
+// Like `authenticate`, but never rejects — sets req.user if a valid token is present.
+const optionalAuth = (req: any, _res: any, next: any) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (token) {
+    try { req.user = jwt.verify(token, JWT_SECRET); } catch { /* treat as guest */ }
+  }
+  next();
+};
+
+// Hide sensitive ticket details from guests (not-logged-in viewers) so a listing
+// cannot be copied. Any logged-in user (and the owner) sees the full details.
+const maskTicketForViewer = (ticket: any, viewerId?: string) => {
+  if (!ticket) return ticket;
+  if (viewerId) return ticket; // logged in -> full details
+  const seller = ticket.seller ? { ...ticket.seller } : ticket.seller;
+  if (seller) delete seller.phone;
+  return { ...ticket, seller, seat_number: null, ticket_image: null, locked: true };
+};
+
+app.get("/api/tickets", optionalAuth, async (req: any, res) => {
   const { from, to, date } = req.query;
-  
-  let query = supabase.from('tickets').select('*, seller:users(name)').eq('status', 'available');
+
+  let query = supabase
+    .from('tickets')
+    .select('*, seller:users(name, rating, rating_count, is_verified, avatar_url)')
+    .eq('status', 'available');
 
   if (from) query = query.ilike('from_location', `%${from}%`);
   if (to) query = query.ilike('to_location', `%${to}%`);
@@ -271,7 +298,19 @@ app.get("/api/tickets", async (req, res) => {
   const { data: tickets, error } = await query;
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(tickets);
+  res.json((tickets || []).map((t: any) => maskTicketForViewer(t, req.user?.id)));
+});
+
+// Single ticket (used by the detail page). Masked for guests.
+app.get("/api/tickets/:id", optionalAuth, async (req: any, res) => {
+  const { data: ticket, error } = await supabase
+    .from('tickets')
+    .select('*, seller:users(id, name, phone, rating, rating_count, is_verified, avatar_url)')
+    .eq('id', req.params.id)
+    .single();
+
+  if (!ticket || error) return res.status(404).json({ error: "Ticket not found" });
+  res.json(maskTicketForViewer(ticket, req.user?.id));
 });
 
 // Accept the image under any field name (the client sends "ticket_image"),
@@ -406,7 +445,7 @@ app.post("/api/ratings", authenticate, async (req: any, res) => {
 // ==================== MESSAGING ====================
 app.get("/api/messages/conversations", authenticate, async (req: any, res) => {
   const { data: messages, error } = await supabase.from('messages')
-    .select('*, ticket:tickets(transport_type, operator_name), sender:users!messages_sender_id_fkey(name), receiver:users!messages_receiver_id_fkey(name)')
+    .select('*, ticket:tickets(transport_type, operator_name, from_location, to_location, seller_id), sender:users!messages_sender_id_fkey(name, avatar_url), receiver:users!messages_receiver_id_fkey(name, avatar_url)')
     .or(`sender_id.eq.${req.user.id},receiver_id.eq.${req.user.id}`)
     .order('created_at', { ascending: false });
 
@@ -416,14 +455,23 @@ app.get("/api/messages/conversations", authenticate, async (req: any, res) => {
 
 app.get("/api/messages/:ticketId", authenticate, async (req: any, res) => {
   const { ticketId } = req.params;
+  const withUser = req.query.with as string | undefined;
   const { data: messages, error } = await supabase.from('messages')
-    .select('*, sender:users!messages_sender_id_fkey(name)')
+    .select('*, sender:users!messages_sender_id_fkey(name, avatar_url)')
     .eq('ticket_id', ticketId)
     .or(`sender_id.eq.${req.user.id},receiver_id.eq.${req.user.id}`)
     .order('created_at', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(messages);
+  let result = messages || [];
+  // Keep only the thread with one specific counterparty (separate chat per user).
+  if (withUser) {
+    result = result.filter((m: any) =>
+      (m.sender_id === req.user.id && m.receiver_id === withUser) ||
+      (m.sender_id === withUser && m.receiver_id === req.user.id)
+    );
+  }
+  res.json(result);
 });
 
 app.post("/api/messages", authenticate, async (req: any, res) => {

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     rating DECIMAL DEFAULT 5.0,
     rating_count INTEGER DEFAULT 0,
     is_verified BOOLEAN DEFAULT false,
+    avatar_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
