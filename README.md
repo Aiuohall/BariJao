@@ -1,59 +1,99 @@
 # BariJao — Safe Eid Ticket Exchange 🎟️
 
-A community marketplace for safely buying and reselling travel tickets in Bangladesh.
-Built with **React + Vite** (frontend) and **Express + TypeScript** (backend).
+> A community marketplace to safely **buy and resell travel tickets** in Bangladesh.
 
-The app is **self-contained**: with no external configuration it runs on a local
-SQLite database, so you can clone and run it immediately. You can optionally switch
-to Supabase (Postgres) and add a Google Gemini key for the AI description feature.
+🔗 **Live app:** https://barijao.onrender.com
 
-## Tech stack
-- Frontend: React 19, Vite 6, Tailwind CSS 4, Framer Motion, React Router
-- Backend: Express 4, JWT auth, bcrypt, Multer uploads, `tsx` runtime
-- Database: SQLite by default (`better-sqlite3`), Supabase optional
-- AI: Google Gemini (optional)
+![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3FCF8E?logo=supabase&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
 
-## Run locally
+---
+
+## 👋 About this project
+
+Hi, I'm **Ratul**. I built BariJao to solve a very real problem in Bangladesh.
+
+During Eid, millions of people travel home and tickets sell out fast. Many people end up
+holding tickets they can no longer use, while others desperately need one. Today those
+spare tickets are sold through untrusted Facebook groups and black-market resellers, which
+is risky and full of scams.
+
+**BariJao is a community marketplace where people can safely buy and resell their travel
+tickets** — with verified accounts, private buyer–seller chat, ratings, and listings that
+hide sensitive details so a ticket can't be copied.
+
+---
+
+## ✨ Features
+
+- 🔍 **Search tickets** by route (from / to) and journey date.
+- 🧾 **List your ticket** in seconds, with an optional photo.
+- 🔒 **Privacy-first listings** — seat number, ticket photo, and seller phone are hidden
+  from logged-out visitors so a ticket can't be copied or misused.
+- 💬 **Private chat per conversation** — each buyer↔seller thread for each ticket is
+  separate, like a real marketplace inbox.
+- 👤 **User profiles** with optional profile photos, star ratings, and reviews to build trust.
+- 🔐 **Secure auth** — registration and login are verified with a one-time code (OTP) sent
+  to the user's email.
+- 🛠️ **Admin dashboard** to manage users, tickets, and transactions.
+- 🌐 **Bilingual UI** (English / বাংলা).
+
+---
+
+## 🔄 How it works
+
+1. **Sign up** and verify your account with a code sent to your email.
+2. **List** a spare ticket with its route, date, price, and photo.
+3. **Buyers search** their route, find your ticket, and **chat** with you to confirm.
+4. The **buyer pays** and marks the purchase; full details are shared securely.
+5. Both sides **rate each other** afterwards to build a trustworthy community.
+
+---
+
+## 🧰 Tech stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS, Framer Motion, React Router |
+| Backend | Node.js, Express, JWT auth, bcrypt, Multer |
+| Database | Supabase (PostgreSQL) — falls back to local SQLite if not configured |
+| Email | Brevo (OTP delivery) |
+| Hosting | Render |
+
+---
+
+## 🚀 Run it locally
+
 ```bash
+git clone https://github.com/Aiuohall/BariJao.git
+cd BariJao
 npm install
-cp .env.example .env   # optional; defaults work out of the box
-npm run dev            # starts API + Vite on http://localhost:3000
+cp .env.example .env   # optional — defaults run on a local SQLite database
+npm run dev            # open http://localhost:3000
 ```
-`npm run dev` runs the Express server with Vite middleware. The frontend is proxied
-through the same port, so just open http://localhost:3000.
 
-## Production build / start
-```bash
-npm run build          # builds the frontend into dist/
-NODE_ENV=production npm start
-```
-In production mode the server serves the built frontend from `dist/` and the API
-from the same port (`process.env.PORT`, default 3000).
+For a production build: `npm run build` then `NODE_ENV=production npm start`.
 
-## Environment variables
-All optional — see `.env.example`. Leave Supabase vars empty to use SQLite.
+### Environment variables (all optional — see `.env.example`)
 
 | Variable | Purpose |
 |---|---|
-| `SUPABASE_URL`, `SUPABASE_KEY` | Use Supabase instead of SQLite |
-| `VITE_GOOGLE_AI_API_KEY` / `GEMINI_API_KEY` | Enable the AI description feature |
+| `SUPABASE_URL`, `SUPABASE_KEY` | Use Supabase instead of local SQLite |
+| `BREVO_API_KEY`, `EMAIL_FROM` | Send OTP codes by email |
 | `JWT_SECRET` | Secret used to sign login tokens |
+| `VITE_GOOGLE_AI_API_KEY` | Optional AI listing-description feature |
 | `PORT` | Server port (default 3000) |
 
-## Deploy (Render — free)
-This repo includes `render.yaml`, so deployment is one click:
-1. Push this repo to GitHub.
-2. Go to [render.com](https://render.com) → **New** → **Blueprint** → select this repo.
-3. Render reads `render.yaml`, builds, and deploys. `JWT_SECRET` is auto-generated.
-4. (Optional) In the service's **Environment** tab, add `VITE_GOOGLE_AI_API_KEY` for AI,
-   or `SUPABASE_URL` / `SUPABASE_KEY` to use Supabase.
+---
 
-> **Note on the free tier:** Render's free instances have an ephemeral filesystem, so
-> the SQLite database and uploaded images reset when the service restarts/redeploys.
-> For permanent storage, attach a Render persistent disk (paid) or switch to Supabase.
+## 📌 Status
 
-## Notes
-- Login uses a one-time code (OTP). There is no email provider wired in, so during
-  development the OTP is printed to the **server console** — copy it from there.
-- This is a prototype. Before any real-world/public use, add proper email delivery,
-  payment escrow, identity verification, and abuse/fraud safeguards.
+This is a working prototype I designed, built, and deployed end-to-end. It's an ongoing
+personal project — I'm continuing to improve safety, payments, and identity verification.
+Feedback and contributions are welcome! 🙌
+
+— Built by **Ratul** ([@Aiuohall](https://github.com/Aiuohall))
