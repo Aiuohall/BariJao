@@ -1375,7 +1375,7 @@ const UserDashboard = () => {
       const fetchDashboard = async () => {
         try {
           const d = await apiService.getUserDashboard();
-          setData(d);
+          setData({ listings: d?.listings || [], purchases: d?.purchases || [] });
         } catch (e) {
           console.error(e);
         } finally {

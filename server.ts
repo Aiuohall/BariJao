@@ -482,7 +482,7 @@ app.post("/api/ai/generate-description", authenticate, async (req, res) => {
 app.get("/api/user/dashboard", authenticate, async (req: any, res) => {
   const { data: listings } = await supabase.from('tickets').select('*').eq('seller_id', req.user.id);
   const { data: purchases } = await supabase.from('transactions')
-    .select('*, ticket:tickets(*), seller:users(name, phone)')
+    .select('*, ticket:tickets(*), seller:users!transactions_seller_id_fkey(name, phone)')
     .eq('buyer_id', req.user.id);
 
   res.json({ listings, purchases });
@@ -495,7 +495,7 @@ app.get("/api/dashboard/listings", authenticate, async (req: any, res) => {
 
 app.get("/api/dashboard/purchases", authenticate, async (req: any, res) => {
   const { data: purchases } = await supabase.from('transactions')
-    .select('*, ticket:tickets(*), seller:users(name, phone)')
+    .select('*, ticket:tickets(*), seller:users!transactions_seller_id_fkey(name, phone)')
     .eq('buyer_id', req.user.id);
   res.json(purchases);
 });
@@ -506,6 +506,22 @@ const cleanupExpiredTickets = async () => {
   await supabase.from('tickets').update({ status: 'expired' }).lt('journey_date', today).neq('status', 'sold');
 };
 setInterval(cleanupExpiredTickets, 1000 * 60 * 60);
+
+// ==================== KEEP-ALIVE (prevent free-tier cold starts) ====================
+// Render's free tier sleeps the service after ~15 min without inbound traffic,
+// which makes the next request fail ("Failed to fetch"). Pinging our own public
+// URL every 13 min counts as inbound traffic and keeps the instance warm.
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.APP_URL;
+if (process.env.NODE_ENV === "production" && SELF_URL) {
+  setInterval(async () => {
+    try {
+      await fetch(`${SELF_URL}/api/health`);
+    } catch (e: any) {
+      console.warn("Keep-alive ping failed:", e.message);
+    }
+  }, 1000 * 60 * 13);
+  console.log(`Keep-alive enabled, pinging ${SELF_URL}/api/health every 13 min`);
+}
 
 // ==================== GLOBAL ERROR HANDLER ====================
 app.use((err: any, req: any, res: any, next: any) => {
