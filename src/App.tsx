@@ -132,17 +132,7 @@ const ServerStatus = () => {
           status === 'online' ? "text-emerald-600" : 
           status === 'checking' ? "text-amber-600" : "text-red-600"
         )}>
-          {status === 'online' ? (
-            <span>
-              System Online 
-              <span className={cn(
-                "ml-1 px-1 rounded text-[8px]",
-                dbStatus === 'connected' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-              )}>
-                DB: {dbStatus === 'connected' ? 'OK' : 'OFF'}
-              </span>
-            </span>
-          ) : 
+          {status === 'online' ? 'System Online' :
            status === 'checking' ? 'Checking...' : 'System Offline'}
         </span>
         {status === 'offline' && (
