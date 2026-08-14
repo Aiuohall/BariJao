@@ -155,7 +155,7 @@ const upload = multer({
 async function issueOtp(
   lowerEmail: string,
   otpType: "login" | "registration"
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; otp: string }> {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + OTP_TTL_MS).toISOString();
 
@@ -171,15 +171,31 @@ async function issueOtp(
 
   if (otpError) {
     console.error("OTP Insert Error:", otpError);
-    return { ok: false, error: "Could not create a verification code. Please try again." };
+    return { ok: false, error: "Could not create a verification code. Please try again.", otp };
   }
 
   const result = await sendOtpEmail(lowerEmail, otp);
-  return result.ok ? { ok: true } : { ok: false, error: result.error };
+  return result.ok ? { ok: true, otp } : { ok: false, error: result.error, otp };
+}
+
+// Local-development escape hatch: with no email provider configured there is no
+// way to receive a code, which makes the app unusable on a dev machine. In that
+// case only, and never in production, the code is returned to the browser so the
+// flow can be exercised. Setting BREVO_API_KEY/SMTP_* switches this off.
+const DEV_SHOW_OTP = process.env.NODE_ENV !== "production" && emailProvider === "none";
+if (DEV_SHOW_OTP) {
+  console.warn(
+    "EMAIL: dev mode — verification codes will be shown in the browser because no " +
+      "email provider is configured. Never run a public deployment like this."
+  );
 }
 
 // Shared response shape for "we sent (or tried to send) a code".
-function otpResponse(res: any, lowerEmail: string, delivery: { ok: boolean; error?: string }) {
+function otpResponse(
+  res: any,
+  lowerEmail: string,
+  delivery: { ok: boolean; error?: string; otp: string }
+) {
   if (delivery.ok) {
     return res.json({
       message: "OTP sent to your email",
@@ -194,6 +210,7 @@ function otpResponse(res: any, lowerEmail: string, delivery: { ok: boolean; erro
     message: "We could not deliver the verification email.",
     email: lowerEmail,
     requiresOTP: true,
+    ...(DEV_SHOW_OTP ? { devOtp: delivery.otp } : {}),
     emailSent: false,
     emailError: delivery.error || "Email delivery failed.",
   });
