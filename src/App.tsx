@@ -1130,7 +1130,9 @@ const Profile = () => {
 // Seconds the user must wait between "resend code" requests.
 const RESEND_COOLDOWN_SECONDS = 30;
 
-type OtpNotice = { emailSent: boolean; emailError?: string } | null;
+// devOtp is only ever sent by a local dev server that has no email provider
+// configured; production never includes it.
+type OtpNotice = { emailSent: boolean; emailError?: string; devOtp?: string } | null;
 
 // The OTP step, shared by Login and Register.
 //
@@ -1173,7 +1175,9 @@ const OtpForm = ({
       const data = await apiService.resendOTP(email);
       setResendMsg(
         data.emailSent === false
-          ? data.emailError || 'Email delivery failed.'
+          ? data.devOtp
+            ? `Email is not configured — your new code is ${data.devOtp}`
+            : data.emailError || 'Email delivery failed.'
           : 'A new code has been sent. Check your inbox and spam folder.'
       );
       setSecondsLeft(RESEND_COOLDOWN_SECONDS);
@@ -1201,6 +1205,12 @@ const OtpForm = ({
             Your code was still created and is valid for 5 minutes — it is also printed in
             the server log.
           </p>
+          {notice.devOtp && (
+            <p className="mt-2">
+              Development mode — your code is{' '}
+              <span className="font-bold tracking-widest text-base">{notice.devOtp}</span>
+            </p>
+          )}
         </div>
       )}
       <div>
@@ -1269,7 +1279,7 @@ const Login = () => {
     try {
       const data = await apiService.login(email, password);
       if (data.requiresOTP) {
-        setNotice({ emailSent: data.emailSent !== false, emailError: data.emailError });
+        setNotice({ emailSent: data.emailSent !== false, emailError: data.emailError, devOtp: data.devOtp });
         setShowOTP(true);
         setError('');
       } else {
@@ -1404,7 +1414,7 @@ const Register = () => {
     try {
       const data = await apiService.register(formData);
       if (data.requiresOTP) {
-        setNotice({ emailSent: data.emailSent !== false, emailError: data.emailError });
+        setNotice({ emailSent: data.emailSent !== false, emailError: data.emailError, devOtp: data.devOtp });
         setShowOTP(true);
         setError('');
       } else {
