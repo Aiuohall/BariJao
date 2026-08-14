@@ -1127,12 +1127,134 @@ const Profile = () => {
   );
 };
 
+// Seconds the user must wait between "resend code" requests.
+const RESEND_COOLDOWN_SECONDS = 30;
+
+type OtpNotice = { emailSent: boolean; emailError?: string } | null;
+
+// The OTP step, shared by Login and Register.
+//
+// It is a separate component on purpose: rendering a raw <form> here (as the
+// sibling branch of a ternary against the credentials <form>) made React reuse
+// the same DOM nodes across the switch, which turned the "Back" button into the
+// credentials form's submit button mid-click and instantly re-sent an OTP.
+const OtpForm = ({
+  email,
+  loading,
+  notice,
+  onVerify,
+  onBack,
+  submitLabel,
+  backLabel,
+}: {
+  email: string;
+  loading: boolean;
+  notice: OtpNotice;
+  onVerify: (code: string) => void;
+  onBack: () => void;
+  submitLabel: string;
+  backLabel: string;
+}) => {
+  const [otp, setOtp] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_SECONDS);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState('');
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [secondsLeft]);
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendMsg('');
+    try {
+      const data = await apiService.resendOTP(email);
+      setResendMsg(
+        data.emailSent === false
+          ? data.emailError || 'Email delivery failed.'
+          : 'A new code has been sent. Check your inbox and spam folder.'
+      );
+      setSecondsLeft(RESEND_COOLDOWN_SECONDS);
+    } catch (e: any) {
+      setResendMsg(e.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
+  return (
+    <form
+      key="otp-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onVerify(otp);
+      }}
+      className="space-y-4"
+    >
+      {notice && !notice.emailSent && (
+        <div className="bg-amber-50 text-amber-800 p-3 rounded-xl text-sm border border-amber-200">
+          <p className="font-bold mb-1">We couldn't deliver the email.</p>
+          <p>{notice.emailError}</p>
+          <p className="mt-2">
+            Your code was still created and is valid for 5 minutes — it is also printed in
+            the server log.
+          </p>
+        </div>
+      )}
+      <div>
+        <label className="block text-sm font-bold text-gray-700 mb-1">One-Time Password (OTP)</label>
+        <input
+          type="text"
+          required
+          autoFocus
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          value={otp}
+          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-center text-2xl tracking-widest font-bold"
+          placeholder="000000"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={loading || otp.length !== 6}
+        className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+      >
+        {loading ? 'Verifying...' : submitLabel}
+      </button>
+
+      {resendMsg && <p className="text-sm text-gray-600 text-center">{resendMsg}</p>}
+
+      <button
+        type="button"
+        onClick={handleResend}
+        disabled={resending || secondsLeft > 0}
+        className="w-full flex items-center justify-center gap-2 text-emerald-600 text-sm font-bold hover:underline disabled:text-gray-400 disabled:no-underline"
+      >
+        <RefreshCw className={cn('w-4 h-4', resending && 'animate-spin')} />
+        {secondsLeft > 0 ? `Resend code in ${secondsLeft}s` : resending ? 'Sending...' : "Didn't get the code? Resend"}
+      </button>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="w-full text-gray-500 text-sm font-bold hover:underline"
+      >
+        {backLabel}
+      </button>
+    </form>
+  );
+};
+
 const Login = () => {
   const { user, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
   const [showOTP, setShowOTP] = useState(false);
+  const [notice, setNotice] = useState<OtpNotice>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1147,6 +1269,7 @@ const Login = () => {
     try {
       const data = await apiService.login(email, password);
       if (data.requiresOTP) {
+        setNotice({ emailSent: data.emailSent !== false, emailError: data.emailError });
         setShowOTP(true);
         setError('');
       } else {
@@ -1160,12 +1283,11 @@ const Login = () => {
     }
   };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyOTP = async (code: string) => {
     setError('');
     setLoading(true);
     try {
-      const data = await apiService.verifyOTP(email, otp);
+      const data = await apiService.verifyOTP(email, code);
       login(data.token, data.user);
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (e: any) {
@@ -1173,6 +1295,15 @@ const Login = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Leaving the OTP step clears everything it produced, so the credentials form
+  // comes back clean instead of half-filled from the previous attempt.
+  const handleBack = () => {
+    setShowOTP(false);
+    setNotice(null);
+    setError('');
+    setPassword('');
   };
 
   return (
@@ -1192,11 +1323,11 @@ const Login = () => {
         )}
         
         {!showOTP ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form key="login-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
-              <input 
-                type="email" 
+              <input
+                type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -1224,7 +1355,8 @@ const Login = () => {
                 </button>
               </div>
             </div>
-            <button 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
             >
@@ -1232,33 +1364,15 @@ const Login = () => {
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOTP} className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">One-Time Password (OTP)</label>
-              <input 
-                type="text" 
-                required
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-center text-2xl tracking-widest font-bold"
-                placeholder="000000"
-              />
-            </div>
-            <button 
-              disabled={loading}
-              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
-            >
-              {loading ? 'Verifying...' : 'Verify & Login'}
-            </button>
-            <button 
-              type="button"
-              onClick={() => setShowOTP(false)}
-              className="w-full text-gray-500 text-sm font-bold hover:underline"
-            >
-              Back to Login
-            </button>
-          </form>
+          <OtpForm
+            email={email}
+            loading={loading}
+            notice={notice}
+            onVerify={handleVerifyOTP}
+            onBack={handleBack}
+            submitLabel="Verify & Login"
+            backLabel="Back to Login"
+          />
         )}
         
         {!showOTP && (
@@ -1274,8 +1388,8 @@ const Login = () => {
 const Register = () => {
   const { user, login } = useAuth();
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
-  const [otp, setOtp] = useState('');
   const [showOTP, setShowOTP] = useState(false);
+  const [notice, setNotice] = useState<OtpNotice>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1290,6 +1404,7 @@ const Register = () => {
     try {
       const data = await apiService.register(formData);
       if (data.requiresOTP) {
+        setNotice({ emailSent: data.emailSent !== false, emailError: data.emailError });
         setShowOTP(true);
         setError('');
       } else {
@@ -1302,12 +1417,11 @@ const Register = () => {
     }
   };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyOTP = async (code: string) => {
     setError('');
     setLoading(true);
     try {
-      const data = await apiService.verifyOTP(formData.email, otp, 'registration');
+      const data = await apiService.verifyOTP(formData.email, code, 'registration');
       login(data.token, data.user);
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (e: any) {
@@ -1315,6 +1429,15 @@ const Register = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Same reset as Login: drop the OTP step's state and clear the password so
+  // the form is not silently re-submitted with stale values.
+  const handleBack = () => {
+    setShowOTP(false);
+    setNotice(null);
+    setError('');
+    setFormData((f) => ({ ...f, password: '' }));
   };
 
   return (
@@ -1332,7 +1455,7 @@ const Register = () => {
         )}
         
         {!showOTP ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form key="register-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
               <input 
@@ -1388,7 +1511,8 @@ const Register = () => {
                 </button>
               </div>
             </div>
-            <button 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
             >
@@ -1396,33 +1520,15 @@ const Register = () => {
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOTP} className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">One-Time Password (OTP)</label>
-              <input 
-                type="text" 
-                required
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-center text-2xl tracking-widest font-bold"
-                placeholder="000000"
-              />
-            </div>
-            <button 
-              disabled={loading}
-              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50"
-            >
-              {loading ? 'Verifying...' : 'Verify & Complete Registration'}
-            </button>
-            <button 
-              type="button"
-              onClick={() => setShowOTP(false)}
-              className="w-full text-gray-500 text-sm font-bold hover:underline"
-            >
-              Back to Registration
-            </button>
-          </form>
+          <OtpForm
+            email={formData.email}
+            loading={loading}
+            notice={notice}
+            onVerify={handleVerifyOTP}
+            onBack={handleBack}
+            submitLabel="Verify & Complete Registration"
+            backLabel="Back to Registration"
+          />
         )}
         
         {!showOTP && (

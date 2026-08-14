@@ -15,7 +15,17 @@ services:
       # Signs login tokens. Render generates a random value on first deploy.
       - key: JWT_SECRET
         generateValue: true
-      # Email delivery for OTP codes (Gmail). Set these in the dashboard:
+      # Email delivery for OTP codes. Set these in the Render dashboard.
+      #
+      # RECOMMENDED: Brevo. Render's free plan blocks outbound SMTP, so Gmail/SMTP
+      # will NOT deliver mail here — Brevo sends over HTTPS and does work.
+      #   BREVO_API_KEY = API key from Brevo -> SMTP & API -> API Keys
+      #   EMAIL_FROM    = BariJao <a-sender-verified-in-brevo@example.com>
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER
+        sync: false
+      # Fallback only (blocked on Render free):
       #   SMTP_USER = your Gmail address
       #   SMTP_PASS = a Google "App Password" (not your normal password)
       - key: SMTP_USER

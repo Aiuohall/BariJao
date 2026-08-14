@@ -99,8 +99,20 @@ export const db = {
         _limit: null as number | null,
         _order: null as string | null,
         _filters: [] as string[],
+        // UPDATE/DELETE must be executed with run(), not get()/all() — better-sqlite3
+        // throws "This statement does not return data" otherwise.
+        _op: 'select' as 'select' | 'update' | 'delete',
+        // How many of _params belong to the SET clause, so the WHERE params can
+        // be replayed on their own when reading a row back after an UPDATE.
+        _setParamCount: 0,
+        // Whether .select() was chained after .update() (supabase returns the row).
+        _returning: false,
 
         select: function(query = '*', options: any = {}) {
+          if (this._op !== 'select') {
+            this._returning = true;
+            return this;
+          }
           if (options.count === 'exact') {
             this._query = `SELECT count(*) as count FROM ${table}`;
           } else if (query.includes('seller:users')) {
@@ -186,19 +198,40 @@ export const db = {
           });
           this._query = `UPDATE ${table} SET ${keys.map(k => `${k} = ?`).join(',')}`;
           this._params.unshift(...values);
+          this._op = 'update';
+          this._setParamCount = values.length;
           return this;
         },
 
         delete: function() {
           this._query = `DELETE FROM ${table}`;
+          this._op = 'delete';
           return this;
         },
 
         then: async function(resolve: any, reject: any) {
-          let finalQuery = this._query;
-          if (this._filters.length > 0) {
-            finalQuery += ` WHERE ${this._filters.join(' AND ')}`;
+          const where = this._filters.length > 0 ? ` WHERE ${this._filters.join(' AND ')}` : '';
+
+          // Writes: execute with run() and, when the caller chained .select(),
+          // read the affected row back so the result matches supabase's shape.
+          if (this._op === 'update' || this._op === 'delete') {
+            const writeQuery = this._query + where;
+            try {
+              const info = sqlite.prepare(writeQuery).run(...this._params);
+              let data: any = null;
+              if (this._op === 'update' && this._returning) {
+                const whereParams = this._params.slice(this._setParamCount);
+                const readStmt = sqlite.prepare(`SELECT * FROM ${table}${where}`);
+                data = this._single ? readStmt.get(...whereParams) : readStmt.all(...whereParams);
+              }
+              return resolve({ data, error: null, count: info.changes });
+            } catch (e: any) {
+              console.error('SQLite write error:', e, 'Query:', writeQuery);
+              return resolve({ data: null, error: e });
+            }
           }
+
+          let finalQuery = this._query + where;
           if (this._order) {
             finalQuery += ` ${this._order}`;
           }
