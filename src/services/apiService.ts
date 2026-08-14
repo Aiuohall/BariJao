@@ -46,6 +46,17 @@ export const apiService = {
     return data;
   },
 
+  async resendOTP(email: string) {
+    const res = await fetch(`${API_BASE}/auth/resend-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not resend the code');
+    return data;
+  },
+
   async adminLogin(adminId: string, pass: string) {
     const res = await fetch(`${API_BASE}/auth/admin-login`, {
       method: 'POST',

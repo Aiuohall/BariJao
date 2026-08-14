@@ -10,8 +10,9 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
+import rateLimit from "express-rate-limit";
 import { db as supabase, dbStatus } from "./database.ts";
-import { sendOtpEmail } from "./mailer.ts";
+import { sendOtpEmail, emailProvider, emailConfigProblems, logEmailConfig } from "./mailer.ts";
 
 dotenv.config();
 
@@ -46,8 +47,25 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.en
 // JWT Secret (use dedicated secret if available)
 const JWT_SECRET = process.env.JWT_SECRET || process.env.VITE_GOOGLE_AI_API_KEY || "barijao_secret_key_2026";
 
+// How long a verification code stays valid.
+const OTP_TTL_MS = 5 * 60 * 1000;
+
+// Report the email setup at boot so "mail is not coming" is diagnosable from
+// the top of the server log.
+logEmailConfig();
+
 app.use(cors());
 app.use(express.json());
+
+// Every endpoint that can trigger an email is throttled per IP, so the resend
+// button cannot be turned into a mail bomb.
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many verification requests. Please wait a few minutes and try again." },
+});
 
 // ============================================================
 // 1. HEALTH CHECK (always returns JSON)
@@ -69,10 +87,15 @@ app.get("/api/health", async (req, res) => {
       dbInfo.critical_error = dbErr.message;
     }
     
-    res.status(200).json({ 
-      status: "ok", 
+    res.status(200).json({
+      status: "ok",
       database: dbInfo,
-      timestamp: new Date().toISOString() 
+      email: {
+        provider: emailProvider,
+        configured: emailProvider !== "none",
+        problems: emailConfigProblems(),
+      },
+      timestamp: new Date().toISOString()
     });
   } catch (e: any) {
     console.error("Critical error in health check handler:", e);
@@ -125,79 +148,148 @@ const upload = multer({
 });
 
 // ==================== AUTH ROUTES ====================
-app.post("/api/auth/register", async (req, res) => {
-  const { name, email, phone, password } = req.body;
-  if (!name || !email || !phone || !password) return res.status(400).json({ error: "All fields are required" });
 
-  const lowerEmail = email.toLowerCase();
-  
-  const { data: existingUser } = await supabase.from('users').select('id').eq('email', lowerEmail).single();
-  if (existingUser) return res.status(400).json({ error: "Email already registered" });
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  
-  const { data: newUser, error: regError } = await supabase.from('users').insert([{
-    name,
-    email: lowerEmail,
-    phone,
-    password_hash: hashedPassword,
-    role: "user"
-  }]).select().single();
-
-  if (regError) return res.status(500).json({ error: regError.message });
-
+// Generates a code, replaces any previous code for this address, and *waits* for
+// the email provider so the response can tell the truth about delivery.
+// Returns the delivery result; the caller decides what to show the user.
+async function issueOtp(
+  lowerEmail: string,
+  otpType: "login" | "registration"
+): Promise<{ ok: boolean; error?: string }> {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS).toISOString();
+
+  // Invalidate earlier codes so only the newest one works.
+  await supabase.from('otp_codes').delete().eq('email', lowerEmail);
 
   const { error: otpError } = await supabase.from('otp_codes').insert([{
     email: lowerEmail,
     otp_code: otp,
     expires_at: expiresAt,
-    otp_type: 'login'
+    otp_type: otpType
   }]);
 
-  if (otpError) console.error("OTP Insert Error:", otpError);
+  if (otpError) {
+    console.error("OTP Insert Error:", otpError);
+    return { ok: false, error: "Could not create a verification code. Please try again." };
+  }
 
-  // Fire-and-forget: don't block the response on email delivery.
-  sendOtpEmail(lowerEmail, otp).catch((e) => console.error("sendOtpEmail error:", e));
-  res.json({ message: "OTP sent to your email", email: lowerEmail, requiresOTP: true });
+  const result = await sendOtpEmail(lowerEmail, otp);
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+// Shared response shape for "we sent (or tried to send) a code".
+function otpResponse(res: any, lowerEmail: string, delivery: { ok: boolean; error?: string }) {
+  if (delivery.ok) {
+    return res.json({
+      message: "OTP sent to your email",
+      email: lowerEmail,
+      requiresOTP: true,
+      emailSent: true,
+    });
+  }
+  // The code exists and is valid — only delivery failed. Keep the user on the
+  // OTP screen (so an admin-recovered code still works) but say what happened.
+  return res.json({
+    message: "We could not deliver the verification email.",
+    email: lowerEmail,
+    requiresOTP: true,
+    emailSent: false,
+    emailError: delivery.error || "Email delivery failed.",
+  });
+}
+
+app.post("/api/auth/register", otpLimiter, async (req, res) => {
+  const { name, email, phone, password } = req.body;
+  if (!name || !email || !phone || !password) return res.status(400).json({ error: "All fields are required" });
+
+  const lowerEmail = String(email).toLowerCase().trim();
+
+  const { data: existingUser } = await supabase.from('users').select('*').eq('email', lowerEmail).single();
+
+  if (existingUser) {
+    // A verified account really is a duplicate.
+    if (existingUser.is_verified) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+    // Unverified: the previous attempt never completed (e.g. the email never
+    // arrived). Refresh the details and send a new code instead of dead-ending
+    // the user on "Email already registered".
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const { error: updateError } = await supabase.from('users')
+      .update({ name, phone, password_hash: hashedPassword })
+      .eq('id', existingUser.id);
+    if (updateError) return res.status(500).json({ error: updateError.message });
+
+    const delivery = await issueOtp(lowerEmail, 'registration');
+    return otpResponse(res, lowerEmail, delivery);
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const { error: regError } = await supabase.from('users').insert([{
+    name,
+    email: lowerEmail,
+    phone,
+    password_hash: hashedPassword,
+    role: "user",
+    is_verified: false
+  }]).select().single();
+
+  if (regError) return res.status(500).json({ error: regError.message });
+
+  const delivery = await issueOtp(lowerEmail, 'registration');
+  otpResponse(res, lowerEmail, delivery);
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", otpLimiter, async (req, res) => {
   const { email, password } = req.body;
-  const lowerEmail = email.toLowerCase();
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+  const lowerEmail = String(email).toLowerCase().trim();
 
   const { data: user, error: userError } = await supabase.from('users').select('*').eq('email', lowerEmail).single();
-  
+
   if (!user || userError) return res.status(401).json({ error: "Invalid credentials" });
 
   const isValid = await bcrypt.compare(password, user.password_hash);
   if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const delivery = await issueOtp(lowerEmail, 'login');
+  otpResponse(res, lowerEmail, delivery);
+});
 
-  await supabase.from('otp_codes').insert([{
-    email: lowerEmail,
-    otp_code: otp,
-    expires_at: expiresAt,
-    otp_type: 'login'
-  }]);
+// Lets the user ask for a fresh code without re-entering their password, which
+// is the normal recovery path when the first email is slow or lands in spam.
+app.post("/api/auth/resend-otp", otpLimiter, async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required" });
+  const lowerEmail = String(email).toLowerCase().trim();
 
-  // Fire-and-forget: don't block the response on email delivery.
-  sendOtpEmail(lowerEmail, otp).catch((e) => console.error("sendOtpEmail error:", e));
-  res.json({ message: "OTP sent to your email", email: lowerEmail, requiresOTP: true });
+  // Only resend to an address that already has a pending code, so this endpoint
+  // cannot be used to mail arbitrary strangers.
+  const { data: pending } = await supabase
+    .from('otp_codes')
+    .select('*')
+    .eq('email', lowerEmail)
+    .limit(1)
+    .single();
+
+  if (!pending) return res.status(400).json({ error: "No pending verification for this email. Please sign in again." });
+
+  const delivery = await issueOtp(lowerEmail, pending.otp_type === 'registration' ? 'registration' : 'login');
+  otpResponse(res, lowerEmail, delivery);
 });
 
 app.post("/api/auth/verify-otp", async (req, res) => {
   const { email, code } = req.body;
-  const lowerEmail = email.toLowerCase();
+  if (!email || !code) return res.status(400).json({ error: "Email and code are required" });
+  const lowerEmail = String(email).toLowerCase().trim();
 
   const { data: otpData, error: otpError } = await supabase
     .from('otp_codes')
     .select('*')
     .eq('email', lowerEmail)
-    .eq('otp_code', code)
+    .eq('otp_code', String(code).trim())
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
@@ -208,7 +300,13 @@ app.post("/api/auth/verify-otp", async (req, res) => {
   await supabase.from('otp_codes').delete().eq('id', otpData.id);
 
   const { data: user } = await supabase.from('users').select('*').eq('email', lowerEmail).single();
-  
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  // Completing an OTP proves the address works, so the account is now verified.
+  if (!user.is_verified) {
+    await supabase.from('users').update({ is_verified: true }).eq('id', user.id);
+  }
+
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, rating: user.rating, avatar_url: user.avatar_url } });
 });
@@ -232,10 +330,18 @@ app.post("/api/auth/admin-login", async (req, res) => {
 });
 
 // ==================== PROFILE ROUTES ====================
+
+// Never send the bcrypt hash to the client.
+function publicUser(user: any) {
+  if (!user) return user;
+  const { password_hash, ...safe } = user;
+  return safe;
+}
+
 app.get("/api/profile", authenticate, async (req: any, res) => {
   const { data: user, error } = await supabase.from('users').select('*').eq('id', req.user.id).single();
   if (!user || error) return res.status(404).json({ error: "User not found" });
-  res.json(user);
+  res.json(publicUser(user));
 });
 
 app.put("/api/profile", authenticate, async (req: any, res) => {
@@ -246,13 +352,15 @@ app.put("/api/profile", authenticate, async (req: any, res) => {
   if (avatar_url !== undefined) updates.avatar_url = avatar_url; // data URL string or null
   const { data: user, error } = await supabase.from('users').update(updates).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  res.json(user);
+  res.json(publicUser(user));
 });
 
 app.put("/api/profile/password", authenticate, async (req: any, res) => {
   const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password are required" });
   const { data: user } = await supabase.from('users').select('*').eq('id', req.user.id).single();
-  
+  if (!user) return res.status(404).json({ error: "User not found" });
+
   if (!await bcrypt.compare(currentPassword, user.password_hash)) {
     return res.status(400).json({ error: "Current password incorrect" });
   }
