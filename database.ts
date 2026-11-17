@@ -13,9 +13,7 @@ const __dirname = path.dirname(__filename);
 let sqlite: any = null;
 
 const initSqlite = () => {
-  if (sqlite) return;
-  // If Supabase is working, we don't need SQLite
-  if (dbStatus.useSupabase) return;
+  if (sqlite) return sqlite;
 
   try {
     const Database = require('better-sqlite3');
@@ -32,9 +30,16 @@ const initSqlite = () => {
     sqlite.exec(schema);
     sqlite.pragma('foreign_keys = ON');
     console.log(`SQLite fallback initialized at ${dbPath}`);
+    return sqlite;
   } catch (e) {
     console.error('Failed to initialize SQLite fallback:', e);
+    return null;
   }
+};
+
+export const getSqlite = () => {
+  if (!sqlite) initSqlite();
+  return sqlite;
 };
 
 export const dbStatus = {

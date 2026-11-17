@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BariJao - Platform Redesign & Architecture Specification</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    @page {
+      size: A4;
+      margin: 20mm 15mm 20mm 15mm;
+      @bottom-right {
+        content: counter(page);
+        font-size: 9pt;
+        color: #94a3b8;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1e293b;
+      background-color: #ffffff;
+      line-height: 1.55;
+      font-size: 10pt;
+    }
+
+    /* Print Break Utilities */
+    .page-break {
+      page-break-before: always;
+    }
+    .no-break {
+      page-break-inside: avoid;
+    }
+
+    /* Cover Header */
+    .cover {
+      background: linear-gradient(135deg, #064e3b 0%, #0f766e 50%, #0f172a 100%);
+      color: #ffffff;
+      padding: 36px 32px;
+      border-radius: 16px;
+      margin-bottom: 28px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.2);
+      color: #a7f3d0;
+      border: 1px solid rgba(167, 243, 208, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .cover h1 {
+      font-size: 24pt;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .cover p.subtitle {
+      font-size: 11pt;
+      color: #ccfbf1;
+      max-width: 90%;
+      margin-bottom: 20px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 14px;
+      font-size: 8pt;
+    }
+
+    .meta-item strong {
+      display: block;
+      color: #99f6e4;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Headings */
+    h2 {
+      font-size: 14pt;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin: 24px 0 12px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h2 .icon {
+      font-size: 13pt;
+    }
+
+    h3 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #047857;
+      margin: 14px 0 6px 0;
+    }
+
+    p {
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    /* Callout Card */
+    .callout {
+      background-color: #f0fdf4;
+      border-left: 4px solid #10b981;
+      padding: 12px 14px;
+      border-radius: 0 10px 10px 0;
+      margin: 12px 0;
+      font-size: 9pt;
+      color: #065f46;
+    }
+
+    .callout strong {
+      color: #047857;
+    }
+
+    /* Feature Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 12px 0;
+    }
+
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .card h4 {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card p {
+      font-size: 8.5pt;
+      color: #64748b;
+      margin-bottom: 0;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 8.5pt;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 7px 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    /* Code Snippet */
+    pre {
+      background-color: #0f172a;
+      color: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 8pt;
+      overflow-x: auto;
+      margin: 8px 0;
+      line-height: 1.45;
+    }
+
+    code {
+      font-family: Consolas, Monaco, monospace;
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-size: 8.5pt;
+    }
+
+    /* Step List */
+    ol.steps {
+      margin-left: 18px;
+      margin-bottom: 12px;
+    }
+
+    ol.steps li {
+      margin-bottom: 6px;
+      font-size: 9pt;
+      color: #334155;
+    }
+
+    ul.bullets {
+      margin-left: 18px;
+      margin-bottom: 10px;
+    }
+
+    ul.bullets li {
+      margin-bottom: 4px;
+      font-size: 9pt;
+      color: #334155;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 30px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+      font-size: 8pt;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- COVER HEADER -->
+  <div class="cover">
+    <div class="badge">Comprehensive Product & Technical Specification</div>
+    <h1>BariJao: Bangladesh E-Ticketing & P2P Resale Platform</h1>
+    <p class="subtitle">Complete technical blueprint, architecture guide, feature breakdown, and execution runbook for the unified multi-modal ticketing ecosystem.</p>
+
+    <div class="meta-grid">
+      <div class="meta-item">
+        <strong>Platform</strong>
+        <span>BariJao v2.0 (Dual-Engine)</span>
+      </div>
+      <div class="meta-item">
+        <strong>Inspiration</strong>
+        <span>Shohoz.com & BDtickets.com</span>
+      </div>
+      <div class="meta-item">
+        <strong>Release Date</strong>
+        <span>November 2026</span>
+      </div>
+      <div class="meta-item">
+        <strong>Target Market</strong>
+        <span>Bangladesh (Inter-District)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: EXECUTIVE SUMMARY -->
+  <div class="no-break">
+    <h2><span class="icon">🚀</span> 1. Executive Summary & Core Vision</h2>
+    <p>
+      <strong>BariJao</strong> was originally created to solve the dangerous black-market scam problem during Eid festival rushes in Bangladesh, allowing verified travelers to safely buy and resell spare tickets peer-to-peer.
+    </p>
+    <p>
+      With the <strong>v2.0 Redesign</strong>, BariJao expands into a full-scale <strong>e-ticketing platform</strong> matching Bangladesh market leaders like <strong>Shohoz.com</strong> and <strong>bdtickets.com</strong>, while preserving and elevating the signature <strong>P2P second-hand resale marketplace</strong> side-by-side.
+    </p>
+
+    <div class="callout">
+      <strong>The Dual-Model Advantage:</strong> Under ordinary travel conditions, users purchase direct official e-tickets from verified transport operators at standard fares. When festival dates sell out, the integrated <strong>P2P Resale Exchange</strong> activates, letting travelers safely transfer spare tickets without scalper gouging or duplicate ticket scams.
+    </div>
+  </div>
+
+  <!-- SECTION 2: SYSTEM ARCHITECTURE -->
+  <div class="no-break">
+    <h2><span class="icon">🏗️</span> 2. Architectural Pillars</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h4>🚌 1. Official E-Ticketing Engine</h4>
+        <p>Direct ticket booking for Bus, Bangladesh Railway, Launch, and Domestic Airlines with real-time seat availability, live filter controls, and instant digital voucher generation.</p>
+      </div>
+      <div class="card">
+        <h4>🤝 2. P2P Resale Marketplace</h4>
+        <p>Private peer-to-peer ticket exchange with masked seat numbers, private 1-on-1 chat, verified seller ratings, and anti-fraud escrow protection.</p>
+      </div>
+      <div class="card">
+        <h4>💺 3. Interactive Graphical Seat Map</h4>
+        <p>Visual 2×2, 2×1 luxury business, sleeper berths, train coach, and launch cabin seat layouts with ladies-only indicators and boarding point selection.</p>
+      </div>
+      <div class="card">
+        <h4>💳 4. Bangladesh Payments & PNR Engine</h4>
+        <p>Seamless checkout simulator for bKash, Nagad, Rocket, and Cards with coupon discounts (`EID2026`, `BARIJAO50`), automated PNR issuance, and 24/7 ticket lookup.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: MULTI-MODAL OPERATORS -->
+  <div class="no-break page-break">
+    <h2><span class="icon">🗺️</span> 3. Bangladeshi Transport Catalog & Coverage</h2>
+    <p>The platform is pre-loaded with comprehensive schedules, routes, and operators across all 64 districts of Bangladesh:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Top Operators</th>
+          <th>Sample Routes</th>
+          <th>Vehicle / Coach Classes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>🚌 Bus</strong></td>
+          <td>Green Line, Hanif Enterprise, Shohagh, Shyamoli NR, Desh Travels, Saintmartin, London Express, Ena</td>
+          <td>Dhaka ⇄ Cox's Bazar, Chattogram, Sylhet, Rajshahi, Khulna, Bogura</td>
+          <td>Scania Multi-Axle AC, Hyundai Universe Executive, Mercedes-Benz Sleeper, Hino 1J Non-AC</td>
+        </tr>
+        <tr>
+          <td><strong>🚆 Train</strong></td>
+          <td>Bangladesh Railway (BR) Intercity</td>
+          <td>Subarna (701), Sonar Bangla (787), Cox's Bazar Express (813), Parabat, Silk City</td>
+          <td>Snigdha (AC Chair), Shovon Chair, AC Berth, F_Berth</td>
+        </tr>
+        <tr>
+          <td><strong>🚢 Launch</strong></td>
+          <td>MV Manami, MV Parabat-12, MV Sundarban-16, MV Adventure-9, Green Line Water Bus</td>
+          <td>Dhaka (Sadarghat) ⇄ Barishal, Bhola, Chandpur, Patuakhali</td>
+          <td>VIP Presidential Suite, Double AC Deluxe, Single AC Cabin, Open Deck</td>
+        </tr>
+        <tr>
+          <td><strong>✈️ Domestic Air</strong></td>
+          <td>Biman Bangladesh Airlines, US-Bangla Airlines, Air Astra, Novoair</td>
+          <td>Dhaka (DAC) ⇄ Cox's Bazar (CXB), Chattogram (CGP), Sylhet (ZYL), Saidpur</td>
+          <td>Boeing 737 Economy, ATR 72-600 Regular, 20kg Luggage + Refreshment</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Dynamic Route Fallback:</strong> If a traveler searches for any valid pair of Bangladesh districts that does not have a static trip seeded (e.g. Dinajpur to Dhaka), the backend dynamically generates 4–5 realistic operator trips matching accurate fares and distance durations. No route query ever returns an empty screen.
+    </div>
+  </div>
+
+  <!-- SECTION 4: USER FLOW -->
+  <div class="no-break">
+    <h2><span class="icon">🔄</span> 4. End-to-End User Experience</h2>
+    <ol class="steps">
+      <li><strong>Route Search:</strong> Traveler enters origin ("From"), destination ("To"), and journey date on the modern hero bar. Supports 1-click swap (⇄), fast date chips ("Today", "Tomorrow"), and category filters.</li>
+      <li><strong>Filter & Sort:</strong> Results can be filtered by Operator, Coach Class (AC / Sleeper), Max Fare slider, and sorted by Cheapest, Earliest Departure, or Highest Rating.</li>
+      <li><strong>Interactive Seat Selection:</strong> Clicking "View Seats" opens an animated visual seat layout. Users select up to 4 seats, choose boarding counter (e.g., Sayedabad, Gabtoli) and dropping counter with exact pickup times.</li>
+      <li><strong>Checkout & Promo Application:</strong> Enter primary passenger name, Bangladesh mobile number, and optional coupon code (`EID2026` for 15% off, `BARIJAO50` for ৳50 off).</li>
+      <li><strong>Payment Simulator:</strong> Complete payment via bKash (with demo OTP `123456` and PIN flow), Nagad, Rocket, or Cards.</li>
+      <li><strong>Instant Confirmed E-Ticket:</strong> Immediate issuance of a digital travel voucher with unique PNR (e.g., `BJ-BUS-485123`), QR code, barcode, and one-click printable PDF.</li>
+      <li><strong>Anytime PNR Lookup:</strong> Enter PNR or mobile number at `/check-ticket` to view, download, or reprint vouchers anytime.</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 5: TECHNICAL STACK & SCHEMA -->
+  <div class="no-break page-break">
+    <h2><span class="icon">💻</span> 5. Technical Stack & Data Architecture</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Technologies Used</th>
+          <th>Responsibilities</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Frontend</strong></td>
+          <td>React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Vite, React Router v7</td>
+          <td>SPA rendering, interactive seat maps, modals, checkout simulation, bilingual translations.</td>
+        </tr>
+        <tr>
+          <td><strong>Backend API</strong></td>
+          <td>Node.js, Express, TypeScript (tsx runtime), Multer, JWT, bcryptjs</td>
+          <td>REST API routes, auth & OTP limiter, official ticketing endpoints, P2P chat, admin APIs.</td>
+        </tr>
+        <tr>
+          <td><strong>Database</strong></td>
+          <td>better-sqlite3 (with Supabase PostgreSQL support)</td>
+          <td>Dual-table support: official schedules & bookings alongside user tickets and transactions.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Key Database Tables:</h3>
+    <ul class="bullets">
+      <li><code>official_trips</code>: Stores schedules, operator details, fares, seat layouts, booked seat arrays, and boarding points.</li>
+      <li><code>official_bookings</code>: Stores confirmed tickets, unique PNR, traveler details, seat numbers, paid fares, and transaction IDs.</li>
+      <li><code>tickets</code>: P2P community listings with original price, asking price, masked seat number, and seller verification.</li>
+      <li><code>users</code>, <code>messages</code>, <code>transactions</code>, <code>ratings</code>: User authentication, private P2P chat threads, and seller reviews.</li>
+    </ul>
+
+    <h3>REST API Endpoints:</h3>
+    <pre>
+GET    /api/official/trips?transport_type=bus&from=Dhaka&to=Cox's%20Bazar
+GET    /api/official/trips/:id
+POST   /api/official/bookings
+GET    /api/official/bookings/pnr/:pnr
+GET    /api/official/my-bookings?phone=017XXXXXXXX
+GET    /api/official/popular-routes
+GET    /api/tickets (P2P Resale Tickets)
+POST   /api/tickets (List Resale Ticket)
+POST   /api/messages (P2P Chat Messages)
+    </pre>
+  </div>
+
+  <!-- SECTION 6: HOW TO RUN THE WEB -->
+  <div class="no-break">
+    <h2><span class="icon">⚡</span> 6. Step-by-Step Runbook (How to Run the Web)</h2>
+
+    <h3>1. Prerequisites</h3>
+    <ul class="bullets">
+      <li><strong>Node.js:</strong> v18.0.0 or later (v20+ recommended)</li>
+      <li><strong>Package Manager:</strong> npm (bundled with Node.js)</li>
+    </ul>
+
+    <h3>2. Installation & Setup</h3>
+    <p>Navigate to the project root directory and ensure dependencies are installed:</p>
+    <pre>
+cd D:\barijao
+npm install
+    </pre>
+
+    <h3>3. Running the Development Server</h3>
+    <p>Launch the combined backend server and Vite frontend dev server with live hot-reloading:</p>
+    <pre>
+npm run dev
+    </pre>
+    <p>
+      Once launched, open your web browser and navigate to:
+      <br>
+      👉 <strong><code>http://localhost:3000</code></strong>
+    </p>
+
+    <h3>4. Compiling & Production Build</h3>
+    <p>To verify TypeScript typings and build the optimized production assets:</p>
+    <pre>
+npm run lint     # Runs TypeScript compiler check (0 errors)
+npm run build    # Compiles production assets into /dist folder
+    </pre>
+
+    <h3>5. Running in Production Mode</h3>
+    <pre>
+NODE_ENV=production npm start
+    </pre>
+
+    <h3>6. Default Test Accounts & Promo Codes</h3>
+    <ul class="bullets">
+      <li><strong>Discount Coupons:</strong> Use <code>EID2026</code> (15% off up to ৳300), <code>BARIJAO50</code> (৳50 off), or <code>SHOHOZ10</code> (10% off).</li>
+      <li><strong>bKash Simulator:</strong> Enter any 11-digit mobile number, use OTP <code>123456</code>, and enter any 5-digit PIN.</li>
+      <li><strong>Admin Access:</strong> Available at <code>/admin</code> for administrative moderation.</li>
+    </ul>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span>© 2026 BariJao — Official Travel E-Ticketing & P2P Resale Platform</span>
+    <span>Generated on November 18, 2026</span>
+  </div>
+
+</body>
+</html>
