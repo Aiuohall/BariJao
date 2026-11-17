@@ -1,6 +1,6 @@
-# BariJao — Safe Eid Ticket Exchange 🎟️
+# BariJao — Bangladesh E-Ticketing & Safe P2P Ticket Resale 🎟️
 
-> A community marketplace to safely **buy and resell travel tickets** in Bangladesh.
+> Bangladesh's comprehensive travel portal: Buy **Official E-Tickets** (Bus, Train, Launch, Flight) like Shohoz & BDtickets, alongside the trusted **P2P Resale Market** to buy and resell spare travel tickets.
 
 🔗 **Live app:** https://barijao.onrender.com
 
@@ -15,32 +15,29 @@
 
 ## 👋 About this project
 
-Hi, I'm **Ratul**. I built BariJao to solve a very real problem in Bangladesh.
-
-During Eid, millions of people travel home and tickets sell out fast. Many people end up
-holding tickets they can no longer use, while others desperately need one. Today those
-spare tickets are sold through untrusted Facebook groups and black-market resellers, which
-is risky and full of scams.
-
-**BariJao is a community marketplace where people can safely buy and resell their travel
-tickets** — with verified accounts, private buyer–seller chat, ratings, and listings that
-hide sensitive details so a ticket can't be copied.
+BariJao brings the best of both worlds to Bangladeshi travelers:
+1. **Official E-Ticketing System**: Direct booking for major transport operators across Bangladesh (Bus, Bangladesh Railway Train, Launch, and Domestic Airlines) with interactive seat layout selection, promo coupons, and instant verified e-ticket vouchers.
+2. **P2P Second-Hand Ticket Exchange**: Bangladesh's trusted community marketplace where travelers can safely resell or buy sold-out Eid and rush tickets without black-market scams.
 
 ---
 
 ## ✨ Features
 
-- 🔍 **Search tickets** by route (from / to) and journey date.
-- 🧾 **List your ticket** in seconds, with an optional photo.
-- 🔒 **Privacy-first listings** — seat number, ticket photo, and seller phone are hidden
-  from logged-out visitors so a ticket can't be copied or misused.
-- 💬 **Private chat per conversation** — each buyer↔seller thread for each ticket is
-  separate, like a real marketplace inbox.
-- 👤 **User profiles** with optional profile photos, star ratings, and reviews to build trust.
-- 🔐 **Secure auth** — registration and login are verified with a one-time code (OTP) sent
-  to the user's email.
-- 🛠️ **Admin dashboard** to manage users, tickets, and transactions.
-- 🌐 **Bilingual UI** (English / বাংলা).
+### 🚌 1. Official E-Ticketing Platform (Shohoz & BDtickets Style)
+- **Multi-Modal Transport Search**: Bus (Green Line, Hanif, Shohagh, Shyamoli, Desh Travels, Ena, Saintmartin, London Express), Train (Bangladesh Railway Subarna, Cox's Bazar Express, Sonar Bangla), Launch (MV Manami, MV Parabat, MV Sundarban), and Domestic Flights (Biman Bangladesh, US-Bangla, Air Astra).
+- **Interactive Graphical Seat Layout Plan**: Clickable real-bus (2x2, 2x1 luxury, sleeper), train coach, and launch cabin seat layouts with available, booked, and ladies-only indicators.
+- **Boarding & Dropping Points**: Choose exact terminal counters with departure and arrival timings.
+- **Bangladeshi Payment Simulator**: Support for bKash (with PIN/OTP verification flow), Nagad, Rocket, and Debit/Credit Cards.
+- **Instant Verified E-Ticket Voucher**: Displays unique booking PNR (e.g. `BJ-BUS-789012`), QR code, barcode, seat breakdown, and printable PDF voucher (`window.print()`).
+- **PNR / Booking Status Checker**: Search and print confirmed e-tickets anytime using PNR or passenger mobile number.
+
+### 🤝 2. Safe P2P Ticket Resale Marketplace
+- **List Spare Tickets**: Fill details in seconds with optional image upload and AI-assisted descriptions.
+- **Anti-Fraud Privacy**: Seat numbers, ticket copies, and seller phone numbers are masked until purchase confirmation to prevent duplicate ticket fraud.
+- **Private Buyer↔Seller Chat**: 1-on-1 negotiation and coordination threads.
+- **Seller Trust Badges & Ratings**: User ratings and verified community badges.
+- **Unified Dashboard**: Manage official e-ticket vouchers, resale listings, and purchases all in one place.
+- **Bilingual Interface**: Full English and Bengali (বাংলা) support.
 
 ---
 

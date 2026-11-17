@@ -13,6 +13,14 @@ import { GoogleGenAI } from "@google/genai";
 import rateLimit from "express-rate-limit";
 import { db as supabase, dbStatus } from "./database.ts";
 import { sendOtpEmail, emailProvider, emailConfigProblems, logEmailConfig } from "./mailer.ts";
+import { 
+  getOfficialTrips, 
+  getTripById, 
+  createOfficialBooking, 
+  getBookingByPnrOrPhone, 
+  getUserBookings,
+  initOfficialTickets
+} from "./officialTicketService.ts";
 
 dotenv.config();
 
@@ -674,6 +682,119 @@ app.get("/api/dashboard/purchases", authenticate, async (req: any, res) => {
     .select('*, ticket:tickets(*), seller:users!transactions_seller_id_fkey(name, phone)')
     .eq('buyer_id', req.user.id);
   res.json(purchases);
+});
+
+// ==================== OFFICIAL E-TICKETING ROUTES (Shohoz / BDtickets style) ====================
+// Initialize official trips database tables & catalog
+try {
+  initOfficialTickets();
+} catch (e) {
+  console.warn("Could not pre-init official tickets:", e);
+}
+
+app.get("/api/official/trips", (req, res) => {
+  try {
+    const { transport_type, from, to, date } = req.query;
+    const trips = getOfficialTrips({
+      transport_type: transport_type ? String(transport_type) : undefined,
+      from: from ? String(from) : undefined,
+      to: to ? String(to) : undefined,
+      date: date ? String(date) : undefined
+    });
+    res.json(trips);
+  } catch (err: any) {
+    console.error("Error fetching official trips:", err);
+    res.status(500).json({ error: err.message || "Failed to fetch trips" });
+  }
+});
+
+app.get("/api/official/trips/:id", (req, res) => {
+  try {
+    const trip = getTripById(req.params.id);
+    if (!trip) return res.status(404).json({ error: "Trip not found" });
+    res.json(trip);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to fetch trip" });
+  }
+});
+
+app.post("/api/official/bookings", optionalAuth, (req: any, res) => {
+  try {
+    const {
+      trip_id,
+      seats,
+      passenger_name,
+      passenger_phone,
+      passenger_email,
+      passenger_gender,
+      boarding_point,
+      dropping_point,
+      payment_method,
+      promo_code,
+      journey_date
+    } = req.body;
+
+    if (!trip_id || !seats || !seats.length || !passenger_name || !passenger_phone || !boarding_point) {
+      return res.status(400).json({ error: "Please provide all required passenger and seat details." });
+    }
+
+    const booking = createOfficialBooking({
+      trip_id,
+      user_id: req.user ? req.user.id : null,
+      seats,
+      passenger_name,
+      passenger_phone,
+      passenger_email,
+      passenger_gender,
+      boarding_point,
+      dropping_point: dropping_point || "Central Destination Terminal",
+      payment_method: payment_method || "bkash",
+      promo_code,
+      journey_date
+    });
+
+    res.status(201).json(booking);
+  } catch (err: any) {
+    console.error("Error creating booking:", err);
+    res.status(400).json({ error: err.message || "Booking failed" });
+  }
+});
+
+app.get("/api/official/bookings/pnr/:pnr", (req, res) => {
+  try {
+    const booking = getBookingByPnrOrPhone(req.params.pnr);
+    if (!booking) return res.status(404).json({ error: "No booking found with this PNR or Phone number." });
+    res.json(booking);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to find booking" });
+  }
+});
+
+app.get("/api/official/my-bookings", optionalAuth, (req: any, res) => {
+  try {
+    if (!req.user) {
+      const phone = req.query.phone ? String(req.query.phone) : "";
+      if (!phone) return res.json([]);
+      const bookings = getUserBookings("", phone);
+      return res.json(bookings);
+    }
+    const bookings = getUserBookings(req.user.id, req.user.phone);
+    res.json(bookings);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to fetch bookings" });
+  }
+});
+
+app.get("/api/official/popular-routes", (req, res) => {
+  const popular = [
+    { from: "Dhaka", to: "Cox's Bazar", transport: "bus", minFare: 1600, duration: "8h 30m", operatorsCount: 18, image: "https://images.unsplash.com/photo-1596895111956-bf1cf0599ce5?w=600&auto=format&fit=crop&q=80" },
+    { from: "Dhaka", to: "Chattogram", transport: "bus", minFare: 750, duration: "5h 15m", operatorsCount: 24, image: "https://images.unsplash.com/photo-1582650625119-3a31f8418af9?w=600&auto=format&fit=crop&q=80" },
+    { from: "Dhaka", to: "Sylhet", transport: "bus", minFare: 700, duration: "5h 30m", operatorsCount: 15, image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80" },
+    { from: "Dhaka", to: "Barishal", transport: "launch", minFare: 450, duration: "8h 00m", operatorsCount: 12, image: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&auto=format&fit=crop&q=80" },
+    { from: "Dhaka", to: "Rajshahi", transport: "train", minFare: 340, duration: "5h 55m", operatorsCount: 8, image: "https://images.unsplash.com/photo-1474487548417-781cb71495f3?w=600&auto=format&fit=crop&q=80" },
+    { from: "Dhaka", to: "Cox's Bazar", transport: "flight", minFare: 4200, duration: "1h 05m", operatorsCount: 4, image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&auto=format&fit=crop&q=80" }
+  ];
+  res.json(popular);
 });
 
 // ==================== EXPIRED TICKETS CLEANUP ====================

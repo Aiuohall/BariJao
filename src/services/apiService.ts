@@ -257,5 +257,61 @@ export const apiService = {
       body: JSON.stringify({ banned })
     });
     return await res.json();
+  },
+
+  // Official E-Ticketing (Shohoz / BDtickets style)
+  async getOfficialTrips(filters: { transport_type?: string; from?: string; to?: string; date?: string }) {
+    const params = new URLSearchParams();
+    if (filters.transport_type) params.append('transport_type', filters.transport_type);
+    if (filters.from) params.append('from', filters.from);
+    if (filters.to) params.append('to', filters.to);
+    if (filters.date) params.append('date', filters.date);
+
+    const res = await fetch(`${API_BASE}/official/trips?${params.toString()}`, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch trips');
+    return data;
+  },
+
+  async getOfficialTripById(id: string) {
+    const res = await fetch(`${API_BASE}/official/trips/${id}`, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch trip');
+    return data;
+  },
+
+  async createOfficialBooking(bookingData: any) {
+    const res = await fetch(`${API_BASE}/official/bookings`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(bookingData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Booking failed');
+    return data;
+  },
+
+  async getBookingByPnr(pnr: string) {
+    const res = await fetch(`${API_BASE}/official/bookings/pnr/${encodeURIComponent(pnr.trim())}`, {
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No booking found');
+    return data;
+  },
+
+  async getMyOfficialBookings(phone?: string) {
+    const qs = phone ? `?phone=${encodeURIComponent(phone)}` : '';
+    const res = await fetch(`${API_BASE}/official/my-bookings${qs}`, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch bookings');
+    return data;
+  },
+
+  async getPopularRoutes() {
+    const res = await fetch(`${API_BASE}/official/popular-routes`);
+    const data = await res.json();
+    if (!res.ok) return [];
+    return data;
   }
 };

@@ -1,14 +1,25 @@
-// BariJao v1.0.3 - Ticket Marketplace
+// BariJao v2.0 - E-Ticketing & P2P Resale Marketplace
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { TranslationProvider, useTranslation } from './TranslationContext';
 import { BANGLADESH_DISTRICTS } from './constants';
 import { apiService } from './services/apiService';
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save, RefreshCw, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { Search, User, LogOut, Menu, X, Ticket as TicketIcon, MessageSquare, Shield, PlusCircle, Star, Mail, Phone, Lock, Edit2, Save, RefreshCw, ChevronRight, Eye, EyeOff, Repeat, Bus, Train, Ship, Plane, CheckCircle, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+
+import { Navbar } from './components/Navbar';
+import { HeroSearch } from './components/HeroSearch';
+import { TripResults } from './components/TripResults';
+import { ResaleMarketSection } from './components/ResaleMarketSection';
+import { PopularRoutesSection } from './components/PopularRoutesSection';
+import { OperatorPartnersSection } from './components/OperatorPartnersSection';
+import { WhyBariJaoSection } from './components/WhyBariJaoSection';
+import { PnrLookupModal } from './components/PnrLookupModal';
+import { TicketVoucherModal } from './components/TicketVoucherModal';
+import { OfficialTrip, OfficialBooking } from './types';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -145,110 +156,6 @@ const ServerStatus = () => {
         )}
       </div>
     </div>
-  );
-};
-
-const Navbar = () => {
-  const { user, logout } = useAuth();
-  const { lang, setLang, t } = useTranslation();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          <div className="flex items-center gap-2">
-            <Link to="/" className="text-2xl font-bold text-emerald-600 flex items-center gap-2">
-              <TicketIcon className="w-8 h-8" />
-              <span className="hidden sm:inline">{t.appName}</span>
-            </Link>
-            <div className="hidden lg:block ml-2">
-              <ServerStatus />
-            </div>
-          </div>
-
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-6">
-            <button 
-              onClick={() => setLang(lang === 'en' ? 'bn' : 'en')}
-              className="text-sm font-medium text-gray-500 hover:text-gray-900"
-            >
-              {lang === 'en' ? 'বাংলা' : 'English'}
-            </button>
-            <Link to="/" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.home}</Link>
-            <Link to="/" className="text-sm font-medium text-emerald-600 font-bold hover:text-emerald-700">Buy Tickets</Link>
-            {user ? (
-              <>
-                <Link to="/sell" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.sell}</Link>
-                <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.dashboard}</Link>
-                <Link to="/messages" className="text-sm font-medium text-gray-600 hover:text-emerald-600">{t.messages}</Link>
-                <Link to="/profile" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-2">
-                  <Avatar src={user.avatar_url} name={user.name} size={26} /> Profile
-                </Link>
-                {user.role === 'admin' && (
-                  <Link to="/admin" className="text-sm font-medium text-gray-600 hover:text-emerald-600 flex items-center gap-1">
-                    <Shield className="w-4 h-4" /> {t.admin}
-                  </Link>
-                )}
-                <button onClick={logout} className="text-sm font-medium text-red-500 hover:text-red-600 flex items-center gap-1">
-                  <LogOut className="w-4 h-4" /> {t.logout}
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center gap-4">
-                <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-emerald-600">
-                  {t.login}
-                </Link>
-                <Link to="/register" className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors">
-                  Register
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile Menu Toggle */}
-          <div className="md:hidden flex items-center gap-4">
-            <button onClick={() => setLang(lang === 'en' ? 'bn' : 'en')} className="text-sm font-medium text-gray-500">
-              {lang === 'en' ? 'বাংলা' : 'English'}
-            </button>
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-gray-600">
-              {isMenuOpen ? <X /> : <Menu />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Nav */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t border-gray-100 overflow-hidden"
-          >
-            <div className="px-4 pt-2 pb-6 space-y-2">
-              <Link to="/" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.home}</Link>
-              <Link to="/" className="block px-3 py-2 rounded-md text-base font-bold text-emerald-600 hover:bg-emerald-50" onClick={() => setIsMenuOpen(false)}>Buy Tickets</Link>
-              {user ? (
-                <>
-                  <Link to="/sell" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.sell}</Link>
-                  <Link to="/dashboard" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.dashboard}</Link>
-                  <Link to="/messages" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.messages}</Link>
-              <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>Profile</Link>
-                  {user.role === 'admin' && (
-                    <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setIsMenuOpen(false)}>{t.admin}</Link>
-                  )}
-                  <button onClick={() => { logout(); setIsMenuOpen(false); }} className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-500 hover:bg-gray-50">{t.logout}</button>
-                </>
-              ) : (
-                <Link to="/login" className="block px-3 py-2 rounded-md text-base font-medium text-emerald-600" onClick={() => setIsMenuOpen(false)}>{t.login}</Link>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </nav>
   );
 };
 
@@ -468,224 +375,202 @@ const SellTicket = () => {
 };
 
 const Home = () => {
-  const { t } = useTranslation();
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState({ from: '', to: '', date: '', type: '' });
-  const [suggestions, setSuggestions] = useState({ from: [], to: [] });
+  const { lang, t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const urlTransport = (searchParams.get('transport') || 'bus') as 'bus' | 'train' | 'launch' | 'flight' | 'resale';
+  const [activeTransport, setActiveTransport] = useState<'bus' | 'train' | 'launch' | 'flight' | 'resale'>(
+    ['bus', 'train', 'launch', 'flight', 'resale'].includes(urlTransport) ? urlTransport : 'bus'
+  );
+
+  const [from, setFrom] = useState(searchParams.get('from') || 'Dhaka');
+  const [to, setTo] = useState(searchParams.get('to') || "Cox's Bazar");
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [date, setDate] = useState(searchParams.get('date') || todayStr);
+
+  const [trips, setTrips] = useState<OfficialTrip[]>([]);
+  const [loadingTrips, setLoadingTrips] = useState(false);
+  const [pnrModalOpen, setPnrModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchTickets();
-  }, []);
+    const tp = searchParams.get('transport');
+    if (tp && ['bus', 'train', 'launch', 'flight', 'resale'].includes(tp)) {
+      setActiveTransport(tp as any);
+    }
+    const f = searchParams.get('from');
+    if (f) setFrom(f);
+    const destination = searchParams.get('to');
+    if (destination) setTo(destination);
+    const d = searchParams.get('date');
+    if (d) setDate(d);
+  }, [searchParams]);
 
-  const fetchTickets = async () => {
-    setLoading(true);
+  const fetchTrips = async () => {
+    if (activeTransport === 'resale') return;
+    setLoadingTrips(true);
     try {
-      const data = await apiService.getTickets(search);
-      setTickets(data);
-    } catch (e: any) {
-      console.error(e);
+      const data = await apiService.getOfficialTrips({
+        transport_type: activeTransport,
+        from,
+        to,
+        date
+      });
+      setTrips(data);
+    } catch (err) {
+      console.error('Failed to load trips:', err);
     } finally {
-      setLoading(false);
+      setLoadingTrips(false);
     }
   };
 
-  const handleDistrictSearch = (field: 'from' | 'to', val: string) => {
-    setSearch({ ...search, [field]: val });
-    if (val.length > 0) {
-      const query = val.toLowerCase();
-      const filtered = BANGLADESH_DISTRICTS.filter(d => d.toLowerCase().includes(query));
-      setSuggestions({ ...suggestions, [field]: filtered.slice(0, 5) });
-    } else {
-      setSuggestions({ ...suggestions, [field]: [] });
-    }
+  useEffect(() => {
+    fetchTrips();
+  }, [activeTransport]);
+
+  const handleSearch = () => {
+    setSearchParams({
+      transport: activeTransport,
+      from,
+      to,
+      date
+    });
+    fetchTrips();
+    const el = document.getElementById('search-results-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleSelectPopularRoute = (
+    fromDest: string, 
+    toDest: string, 
+    tp: 'bus' | 'train' | 'launch' | 'flight'
+  ) => {
+    setFrom(fromDest);
+    setTo(toDest);
+    setActiveTransport(tp);
+    setSearchParams({
+      transport: tp,
+      from: fromDest,
+      to: toDest,
+      date
+    });
+    fetchTrips();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      {/* Hero Section */}
-      <div className="text-center mb-16">
-        <h1 className="text-5xl font-extrabold text-gray-900 mb-6 tracking-tight">
-          {t.appName}: <span className="text-emerald-600">Eid Ticket Exchange</span>
-        </h1>
-        <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-12">
-          {t.searchSub}
-        </p>
+    <div>
+      {/* PNR Modal if opened */}
+      {pnrModalOpen && <PnrLookupModal onClose={() => setPnrModalOpen(false)} />}
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
-          <Link 
-            to="/sell" 
-            className="w-full sm:w-64 bg-emerald-600 text-white py-6 rounded-2xl text-xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex flex-col items-center gap-2"
-          >
-            <PlusCircle className="w-8 h-8" />
-            {t.sell}
-          </Link>
-          <button 
-            onClick={() => document.getElementById('search-form')?.scrollIntoView({ behavior: 'smooth' })}
-            className="w-full sm:w-64 bg-gray-900 text-white py-6 rounded-2xl text-xl font-bold hover:bg-gray-800 transition-all shadow-xl shadow-gray-900/20 flex flex-col items-center gap-2"
-          >
-            <Search className="w-8 h-8" />
-            Buy Ticket
-          </button>
-        </div>
+      {/* Hero Search Section */}
+      <HeroSearch
+        activeTransport={activeTransport}
+        onTransportChange={(tp) => {
+          setActiveTransport(tp);
+          setSearchParams({ transport: tp, from, to, date });
+        }}
+        from={from}
+        to={to}
+        date={date}
+        onFromChange={setFrom}
+        onToChange={setTo}
+        onDateChange={setDate}
+        onSearch={handleSearch}
+      />
 
-        {/* Search Form */}
-        <div id="search-form" className="bg-white rounded-3xl p-8 shadow-2xl border border-gray-100 max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="relative text-left">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">{t.from}</label>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  value={search.from}
-                  onChange={(e) => handleDistrictSearch('from', e.target.value)}
-                  placeholder="Starting Point"
-                  className="w-full bg-gray-50 px-4 py-4 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 border border-transparent focus:border-emerald-500 transition-all"
-                />
-                {suggestions.from.length > 0 && (
-                  <div className="absolute top-full left-0 w-full bg-white border border-gray-100 rounded-xl shadow-2xl mt-2 z-30 overflow-hidden">
-                    {suggestions.from.map(d => (
-                      <button 
-                        key={d} 
-                        onClick={() => { setSearch({...search, from: d}); setSuggestions({...suggestions, from: []}); }}
-                        className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-gray-700 text-sm font-medium transition-colors"
-                      >
-                        {d}
-                      </button>
-                    ))}
+      {/* Results Section */}
+      <div id="search-results-section">
+        {activeTransport === 'resale' ? (
+          <ResaleMarketSection initialFrom={from} initialTo={to} initialDate={date} />
+        ) : (
+          <>
+            {/* Official E-Tickets Trip Results with Interactive Seats & Checkout */}
+            <TripResults
+              trips={trips}
+              loading={loadingTrips}
+              journeyDate={date}
+              from={from}
+              to={to}
+              transportType={activeTransport}
+            />
+
+            {/* Seamless P2P Resale Banner right under the results */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 my-6">
+              <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-purple-500/20">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 border border-purple-400/30">
+                    <Repeat className="w-7 h-7" />
                   </div>
-                )}
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider font-black text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-full inline-block mb-1">
+                      {lang === 'en' ? 'BariJao Signature Feature' : 'বাড়িযাও সিগনেচার ফিচার'}
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black">
+                      {lang === 'en' 
+                        ? 'Looking for sold-out Eid tickets or need to sell an unused ticket?' 
+                        : 'টিকিট পাননি বা অতিরিক্ত টিকিট বিক্রি করতে চান?'}
+                    </h3>
+                    <p className="text-xs text-purple-200/80 mt-0.5">
+                      {lang === 'en'
+                        ? 'Visit our verified peer-to-peer marketplace. Safe transactions, direct buyer-seller chat, zero black-market markups.'
+                        : 'আমাদের ভেরিফায়েড পি২পি মার্কেটপ্লেসে ন্যায্য মূল্যে সহযাত্রীদের অব্যবহৃত টিকিট ক্রয়-বিক্রয় করুন।'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTransport('resale');
+                      setSearchParams({ transport: 'resale', from, to, date });
+                    }}
+                    className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md shadow-purple-600/30 cursor-pointer transition-transform hover:scale-105"
+                  >
+                    {lang === 'en' ? 'Browse Resale Market' : 'রিসেল মার্কেট দেখুন'}
+                  </button>
+                  <Link
+                    to="/sell"
+                    className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider border border-white/20 transition-colors"
+                  >
+                    {lang === 'en' ? 'Sell Ticket' : 'টিকিট বিক্রি'}
+                  </Link>
+                </div>
               </div>
             </div>
-            <div className="relative text-left">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">{t.to}</label>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  value={search.to}
-                  onChange={(e) => handleDistrictSearch('to', e.target.value)}
-                  placeholder="Destination"
-                  className="w-full bg-gray-50 px-4 py-4 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 border border-transparent focus:border-emerald-500 transition-all"
-                />
-                {suggestions.to.length > 0 && (
-                  <div className="absolute top-full left-0 w-full bg-white border border-gray-100 rounded-xl shadow-2xl mt-2 z-30 overflow-hidden">
-                    {suggestions.to.map(d => (
-                      <button 
-                        key={d} 
-                        onClick={() => { setSearch({...search, to: d}); setSuggestions({...suggestions, to: []}); }}
-                        className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-gray-700 text-sm font-medium transition-colors"
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="text-left">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">{t.date}</label>
-              <input 
-                type="date" 
-                value={search.date}
-                onChange={(e) => setSearch({...search, date: e.target.value})}
-                className="w-full bg-gray-50 px-4 py-4 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 border border-transparent focus:border-emerald-500 transition-all"
-              />
-            </div>
-          </div>
-          <button 
-            onClick={fetchTickets}
-            className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
-          >
-            <Search className="w-6 h-6" /> {t.searchBtn}
-          </button>
-        </div>
+          </>
+        )}
       </div>
 
-      {/* Ticket Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {loading ? (
-          Array(6).fill(0).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-100 rounded-3xl p-6 h-80 animate-pulse">
-              <div className="w-20 h-6 bg-gray-100 rounded-md mb-4"></div>
-              <div className="w-full h-8 bg-gray-100 rounded-md mb-4"></div>
-              <div className="w-3/4 h-4 bg-gray-100 rounded-md mb-8"></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="h-16 bg-gray-100 rounded-xl"></div>
-                <div className="h-16 bg-gray-100 rounded-xl"></div>
-              </div>
-            </div>
-          ))
-        ) : tickets.length > 0 ? (
-          tickets.map((ticket: any) => (
-            <motion.div 
-              key={ticket.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white border border-gray-100 rounded-3xl p-6 hover:shadow-2xl transition-all group"
-            >
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex flex-col gap-2">
-                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider w-fit">
-                    {ticket.transport_type}
-                  </span>
-                  {/* No verified column in tickets schema */}
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-black text-gray-900">৳{ticket.asking_price}</p>
-                  <p className="text-xs text-gray-400 line-through">৳{ticket.original_price}</p>
-                </div>
-              </div>
-              
-              <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors">{ticket.operator_name}</h3>
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-                <span className="font-semibold text-gray-700">{ticket.from_location}</span>
-                <span className="text-emerald-400">→</span>
-                <span className="font-semibold text-gray-700">{ticket.to_location}</span>
-              </div>
+      {/* Popular Routes Section */}
+      <PopularRoutesSection onSelectRoute={handleSelectPopularRoute} />
 
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-gray-50 rounded-2xl p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{t.date}</p>
-                  <p className="text-sm font-bold text-gray-700">{new Date(ticket.journey_date).toLocaleDateString()}</p>
-                </div>
-                <div className="bg-gray-50 rounded-2xl p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{t.seat}</p>
-                  <p className="text-sm font-bold text-gray-700">{ticket.seat_number || <span className="text-gray-400 inline-flex items-center gap-1"><Lock className="w-3 h-3" /> Hidden</span>}</p>
-                </div>
-              </div>
+      {/* Why BariJao Section */}
+      <WhyBariJaoSection />
 
-              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
-                <div className="flex items-center gap-3">
-                  <Avatar src={ticket.seller?.avatar_url} name={ticket.seller?.name} size={40} />
-                  <div>
-                    <div className="flex items-center gap-1">
-                      <p className="text-sm font-bold text-gray-900">{ticket.seller?.name || 'User'}</p>
-                      {ticket.seller?.is_verified && <Shield className="w-3 h-3 text-emerald-500 fill-emerald-500" />}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <p className="text-[10px] text-gray-400 font-medium">Rating: {ticket.seller?.rating || '5.0'} ({ticket.seller?.rating_count || 0})</p>
-                    </div>
-                  </div>
-                </div>
-                <Link 
-                  to={`/ticket/${ticket.id}`}
-                  className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/10"
-                >
-                  {t.viewDetails}
-                </Link>
-              </div>
-            </motion.div>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-32">
-            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Search className="w-12 h-12 text-gray-200" />
-            </div>
-            <p className="text-gray-500 font-bold text-xl mb-2">{t.noTickets}</p>
-            <p className="text-gray-400">Try adjusting your search filters.</p>
-          </div>
-        )}
+      {/* Authorized Operator Partners */}
+      <OperatorPartnersSection />
+    </div>
+  );
+};
+
+const ResalePage = () => {
+  return (
+    <div className="min-h-screen bg-gray-50 pt-4">
+      <ResaleMarketSection />
+      <WhyBariJaoSection />
+    </div>
+  );
+};
+
+const CheckTicketPage = () => {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-gray-50 py-12 px-4 flex items-center justify-center">
+      <div className="w-full max-w-md">
+        <PnrLookupModal onClose={() => navigate('/')} />
       </div>
     </div>
   );
@@ -1553,14 +1438,20 @@ const Register = () => {
 
 const UserDashboard = () => {
   const { user, token } = useAuth();
-  const { t } = useTranslation();
+  const { lang, t } = useTranslation();
   const [data, setData] = useState<any>({ listings: [], purchases: [] });
+  const [officialBookings, setOfficialBookings] = useState<OfficialBooking[]>([]);
+  const [activeTab, setActiveTab] = useState<'official' | 'listings' | 'purchases'>('official');
+  const [selectedVoucher, setSelectedVoucher] = useState<OfficialBooking | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = async () => {
     try {
       const d = await apiService.getUserDashboard();
       setData({ listings: d?.listings || [], purchases: d?.purchases || [] });
+
+      const official = await apiService.getMyOfficialBookings(user?.phone);
+      setOfficialBookings(official || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1601,25 +1492,154 @@ const UserDashboard = () => {
   if (!user) return <Navigate to="/login" />;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">{t.dashboard}</h1>
+    <div className="max-w-7xl mx-auto px-4 py-10">
+      {selectedVoucher && (
+        <TicketVoucherModal
+          booking={selectedVoucher}
+          onClose={() => setSelectedVoucher(null)}
+        />
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Listings */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <TicketIcon className="w-6 h-6 text-emerald-600" /> My Listings
-          </h2>
-          <div className="space-y-4">
-            {data.listings.length === 0 ? (
-              <p className="text-gray-400 text-sm">No active listings.</p>
-            ) : (
-              data.listings.map((ticket: any) => (
-                <div key={ticket.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t.dashboard || 'My Travel Hub & Dashboard'}</h1>
+          <p className="text-xs text-gray-500 mt-1">Manage your official e-tickets, community resale listings, and purchases.</p>
+        </div>
+
+        <Link
+          to="/sell"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md shadow-purple-600/20"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>{lang === 'en' ? 'Sell Spare Ticket' : 'অতিরিক্ত টিকিট বিক্রি'}</span>
+        </Link>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-8 overflow-x-auto no-scrollbar">
+        <button
+          onClick={() => setActiveTab('official')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'official'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <TicketIcon className="w-4 h-4" />
+          <span>{lang === 'en' ? 'Official E-Tickets' : 'অফিসিয়াল ই-টিকিট'}</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
+            {officialBookings.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('listings')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'listings'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <Repeat className="w-4 h-4" />
+          <span>{lang === 'en' ? 'My Resale Listings' : 'আমার রিসেল লিস্টিং'}</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
+            {data.listings.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('purchases')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'purchases'
+              ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>{lang === 'en' ? 'My Resale Purchases' : 'আমার ক্রয়কৃত টিকিট'}</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
+            {data.purchases.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Official Bookings Tab Content */}
+      {activeTab === 'official' && (
+        <div className="space-y-4">
+          {officialBookings.length === 0 ? (
+            <div className="bg-white p-12 rounded-3xl border border-gray-100 shadow-xs text-center space-y-3">
+              <TicketIcon className="w-12 h-12 text-gray-300 mx-auto" />
+              <p className="text-sm font-bold text-gray-700">{lang === 'en' ? 'No Official E-Tickets Yet' : 'কোনো অফিসিয়াল টিকিট কাটা হয়নি'}</p>
+              <p className="text-xs text-gray-400">Search bus, train, launch and air tickets from the homepage.</p>
+              <Link to="/" className="inline-block px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold">
+                Book Tickets Now
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {officialBookings.map((b) => (
+                <div key={b.id} className="bg-white p-5 rounded-3xl border border-gray-200/90 shadow-xs flex flex-col justify-between">
                   <div>
-                    <p className="font-bold text-gray-900">{ticket.operator_name}</p>
-                    <p className="text-xs text-gray-400">{ticket.from_location} → {ticket.to_location}</p>
-                    <div className="mt-1">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                          {b.pnr}
+                        </span>
+                        <h4 className="text-sm font-black text-gray-900 mt-1">{b.operator_name}</h4>
+                      </div>
+                      <span className="text-xs font-bold text-emerald-700 capitalize bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                        {b.transport_type}
+                      </span>
+                    </div>
+
+                    <div className="py-3 space-y-1 text-xs">
+                      <p className="font-extrabold text-gray-800">{b.from_location} → {b.to_location}</p>
+                      <p className="text-gray-500 font-medium">Date: {b.journey_date} • {b.departure_time}</p>
+                      <p className="text-gray-600 font-semibold">
+                        Seats: <strong className="text-emerald-800">{Array.isArray(b.seats) ? b.seats.join(', ') : b.seats}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase">Paid</span>
+                      <span className="text-base font-black text-gray-900">৳{b.net_payable}</span>
+                    </div>
+
+                    <button
+                      onClick={() => setSelectedVoucher(b)}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform hover:scale-105"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>{lang === 'en' ? 'View Voucher' : 'ভাউচার দেখুন'}</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Resale Listings Tab Content */}
+      {activeTab === 'listings' && (
+        <div className="space-y-4">
+          {data.listings.length === 0 ? (
+            <div className="bg-white p-12 rounded-3xl border border-gray-100 shadow-xs text-center space-y-3">
+              <Repeat className="w-12 h-12 text-gray-300 mx-auto" />
+              <p className="text-sm font-bold text-gray-700">{lang === 'en' ? 'No Active Resale Listings' : 'কোনো সক্রিয় লিস্টিং নেই'}</p>
+              <Link to="/sell" className="inline-block px-5 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold">
+                List a Ticket
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {data.listings.map((ticket: any) => (
+                <div key={ticket.id} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                      <p className="font-extrabold text-gray-900">{ticket.operator_name}</p>
                       <span className={cn(
                         "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
                         ticket.status === 'pending' ? "bg-amber-100 text-amber-600" :
@@ -1629,46 +1649,60 @@ const UserDashboard = () => {
                         {ticket.status}
                       </span>
                     </div>
+                    <p className="text-xs text-gray-500 font-medium mt-2">{ticket.from_location} → {ticket.to_location}</p>
+                    <p className="text-xs text-gray-400 mt-1">Date: {ticket.journey_date} • Seat: {ticket.seat_number}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-emerald-600">৳{ticket.asking_price}</p>
-                    <div className="flex items-center justify-end gap-2 mt-1">
-                      <Link to={`/ticket/${ticket.id}`} className="text-xs text-gray-400 hover:underline">View</Link>
-                      <button onClick={() => handleEditPrice(ticket)} className="text-xs text-emerald-600 font-medium hover:underline">Edit price</button>
-                      <button onClick={() => handleDelete(ticket.id)} className="text-xs text-red-500 font-medium hover:underline">Delete</button>
+
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between mt-4">
+                    <p className="font-black text-lg text-emerald-600">৳{ticket.asking_price}</p>
+                    <div className="flex items-center gap-2">
+                      <Link to={`/ticket/${ticket.id}`} className="text-xs text-gray-600 hover:text-emerald-700 font-bold">View</Link>
+                      <button onClick={() => handleEditPrice(ticket)} className="text-xs text-emerald-700 font-bold hover:underline cursor-pointer">Edit Price</button>
+                      <button onClick={() => handleDelete(ticket.id)} className="text-xs text-red-500 font-bold hover:underline cursor-pointer">Delete</button>
                     </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
+      )}
 
-        {/* Purchases */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <MessageSquare className="w-6 h-6 text-emerald-600" /> My Purchases
-          </h2>
-          <div className="space-y-4">
-            {data.purchases.length === 0 ? (
-              <p className="text-gray-400 text-sm">No purchases yet.</p>
-            ) : (
-              data.purchases.map((tx: any) => (
-                <div key={tx.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+      {/* Resale Purchases Tab Content */}
+      {activeTab === 'purchases' && (
+        <div className="space-y-4">
+          {data.purchases.length === 0 ? (
+            <div className="bg-white p-12 rounded-3xl border border-gray-100 shadow-xs text-center space-y-3">
+              <MessageSquare className="w-12 h-12 text-gray-300 mx-auto" />
+              <p className="text-sm font-bold text-gray-700">{lang === 'en' ? 'No Resale Purchases Yet' : 'কোনো রিসেল ক্রয় নেই'}</p>
+              <Link to="/resale" className="inline-block px-5 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold">
+                Browse Resale Market
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {data.purchases.map((tx: any) => (
+                <div key={tx.id} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs flex flex-col justify-between">
                   <div>
-                    <p className="font-bold text-gray-900">{tx.ticket?.operator_name}</p>
-                    <p className="text-xs text-gray-400">Status: <span className="text-emerald-600 font-bold uppercase">{tx.status}</span></p>
+                    <p className="font-extrabold text-gray-900">{tx.ticket?.operator_name}</p>
+                    <p className="text-xs text-gray-500">{tx.ticket?.from_location} → {tx.ticket?.to_location}</p>
+                    <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-2">
+                      {tx.status}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-gray-900">৳{tx.ticket?.asking_price}</p>
-                    <Link to={`/ticket/${tx.ticket_id}`} className="text-xs text-gray-400 hover:underline">View</Link>
+
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between mt-4">
+                    <p className="font-black text-gray-900">৳{tx.ticket?.asking_price}</p>
+                    <Link to={`/ticket/${tx.ticket_id}`} className="text-xs font-bold text-emerald-700 hover:underline">
+                      Chat / View Details
+                    </Link>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -2024,39 +2058,107 @@ const Privacy = () => {
 // --- Main App ---
 
 export default function App() {
+  const [pnrModalOpen, setPnrModalOpen] = useState(false);
+
   return (
     <AuthProvider>
       <TranslationProvider>
         <Router>
-          <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-            <Navbar />
-            <main>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-                <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-                <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/sell" element={<ProtectedRoute><SellTicket /></ProtectedRoute>} />
-                <Route path="/ticket/:id" element={<TicketDetails />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/contact" element={<Contact />} />
-              </Routes>
-            </main>
+          <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col justify-between">
+            {pnrModalOpen && <PnrLookupModal onClose={() => setPnrModalOpen(false)} />}
             
-            <footer className="bg-white border-t border-gray-100 py-12 mt-20">
-              <div className="max-w-7xl mx-auto px-4 text-center">
-                <div className="flex items-center justify-center gap-2 text-emerald-600 font-bold text-xl mb-4">
-                  <TicketIcon className="w-6 h-6" /> BariJao
+            <div>
+              <Navbar onOpenPnrLookup={() => setPnrModalOpen(true)} />
+              <main>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/resale" element={<ResalePage />} />
+                  <Route path="/check-ticket" element={<CheckTicketPage />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+                  <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                  <Route path="/sell" element={<ProtectedRoute><SellTicket /></ProtectedRoute>} />
+                  <Route path="/ticket/:id" element={<TicketDetails />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/contact" element={<Contact />} />
+                </Routes>
+              </main>
+            </div>
+            
+            {/* Modern Comprehensive Footer (Shohoz / BDtickets style) */}
+            <footer className="bg-slate-900 text-gray-400 border-t border-slate-800 pt-16 pb-12 mt-20">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-800">
+                  {/* Brand & Mission */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white">
+                        <TicketIcon className="w-5 h-5 transform -rotate-12" />
+                      </div>
+                      <span className="text-2xl font-black text-white tracking-tight">BariJao</span>
+                    </div>
+                    <p className="text-xs text-gray-400 leading-relaxed max-w-sm">
+                      Bangladesh’s leading smart e-ticketing and verified peer-to-peer travel exchange platform. Direct counter fares from top bus, train, launch, and flight operators, alongside safe second-hand ticket resale.
+                    </p>
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                      <Shield className="w-4 h-4" />
+                      <span>100% Genuine Tickets & Verified Safe Exchange</span>
+                    </div>
+                  </div>
+
+                  {/* Transport Services */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider">Book E-Tickets</h4>
+                    <ul className="space-y-2 text-xs">
+                      <li><Link to="/?transport=bus" className="hover:text-emerald-400 transition-colors">Bus Tickets (Green Line, Hanif, Shohagh)</Link></li>
+                      <li><Link to="/?transport=train" className="hover:text-emerald-400 transition-colors">Bangladesh Railway (Subarna, Cox's Bazar)</Link></li>
+                      <li><Link to="/?transport=launch" className="hover:text-emerald-400 transition-colors">Launch Cabins (MV Manami, Sundarban)</Link></li>
+                      <li><Link to="/?transport=flight" className="hover:text-emerald-400 transition-colors">Domestic Flights (Biman, US-Bangla)</Link></li>
+                    </ul>
+                  </div>
+
+                  {/* Resale & Community */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider">P2P Resale Market</h4>
+                    <ul className="space-y-2 text-xs">
+                      <li><Link to="/resale" className="hover:text-purple-400 transition-colors">Browse Resale Tickets</Link></li>
+                      <li><Link to="/sell" className="hover:text-purple-400 transition-colors">Sell My Unused Ticket</Link></li>
+                      <li><Link to="/check-ticket" className="hover:text-emerald-400 transition-colors">Check Booking / PNR</Link></li>
+                      <li><Link to="/dashboard" className="hover:text-emerald-400 transition-colors">My Bookings & Listings</Link></li>
+                    </ul>
+                  </div>
+
+                  {/* Helpline & Security */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider">24/7 Helpline</h4>
+                    <p className="text-xs text-gray-400">Call our dedicated support center:</p>
+                    <p className="text-sm font-black text-emerald-400">16XXX / +880 9612-BARIJAO</p>
+                    <p className="text-[11px] text-gray-500">Support Hours: 24 Hours / 7 Days</p>
+
+                    <div className="pt-2">
+                      <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Supported Payments</span>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-pink-400">bKash</span>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-orange-400">Nagad</span>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-purple-400">Rocket</span>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-blue-400">Visa/Mastercard</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-gray-400 text-sm mb-8">© 2026 BariJao – Eid Ticket Exchange. All rights reserved.</p>
-                <div className="flex justify-center gap-6 text-sm font-medium text-gray-500">
-                  <Link to="/terms" className="hover:text-gray-900">Terms</Link>
-                  <Link to="/privacy" className="hover:text-gray-900">Privacy</Link>
-                  <Link to="/contact" className="hover:text-gray-900">Contact</Link>
+
+                {/* Bottom Bar */}
+                <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
+                  <p>© 2026 BariJao – Bangladesh E-Tickets & Safe Travel Exchange. All rights reserved.</p>
+                  <div className="flex items-center gap-6 font-medium">
+                    <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+                    <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                    <Link to="/contact" className="hover:text-white transition-colors">Contact Support</Link>
+                  </div>
                 </div>
               </div>
             </footer>
