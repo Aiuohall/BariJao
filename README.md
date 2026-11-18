@@ -75,6 +75,71 @@ npm run dev            # open http://localhost:3000
 
 For a production build: `npm run build` then `NODE_ENV=production npm start`.
 
+---
+
+## 🧪 Developer Mode — Demo Accounts & Credentials
+
+> **⚠️ For client presentation & testing only.** All demo data will be removed before production launch.
+
+The app auto-seeds **5 demo user accounts** and **7 resale ticket listings** on startup when running locally. No registration or email setup needed — just pick an account and log in.
+
+### 🔑 Demo Login Credentials
+
+| # | Name | Email | Password | Role |
+|---|------|-------|----------|------|
+| 1 | Tanvir Ahmed | `tanvir.demo@barijao.com` | `demopassword123` | Frequent Seller (Bus & Train) |
+| 2 | Sadia Islam | `sadia.demo@barijao.com` | `demopassword123` | Top Rated Seller (Sylhet & Launch) |
+| 3 | Rahim Chowdhury | `rahim.demo@barijao.com` | `demopassword123` | Corporate Traveler (Train & Flight) |
+| 4 | Nusrat Jahan | `nusrat.demo@barijao.com` | `demopassword123` | Luxury Coach Reseller |
+| 5 | Arif Hasan | `arif.demo@barijao.com` | `demopassword123` | Standard Buyer & Seller |
+
+**Admin Account:**
+
+| Email | Password | Admin ID |
+|-------|----------|----------|
+| `admin@barijao.com` | `adminpassword123` | `ADMIN-2026` |
+
+### 🔐 Demo OTP & Payment Codes
+
+| Purpose | Code | Where to use |
+|---------|------|-------------|
+| **Login / Registration OTP** | `123456` | OTP verification screen after login |
+| **bKash / Nagad Payment OTP** | `123456` | Payment gateway OTP step during checkout |
+| **bKash / Nagad Payment PIN** | `12345` | Payment gateway PIN step during checkout |
+| **bKash Account Number** | Any 11-digit number (e.g. `01711000001`) | Payment number entry |
+| **Promo Codes** | `EID2026` (15% off) · `BARIJAO50` (৳50 off) · `SHOHOZ10` (10% off) | Checkout promo field |
+
+### 🎫 Pre-Loaded Demo Resale Tickets
+
+7 tickets are auto-seeded across all transport types for the P2P Resale Market:
+
+| Seller | Transport | Route | Price |
+|--------|-----------|-------|-------|
+| Tanvir Ahmed | 🚌 Bus (Green Line Scania) | Dhaka → Cox's Bazar | ৳1,600 |
+| Tanvir Ahmed | 🚂 Train (Suborno Express Snigdha AC) | Dhaka → Chattogram | ৳850 |
+| Sadia Islam | 🚌 Bus (Hanif Business 2x1) | Dhaka → Sylhet | ৳900 |
+| Sadia Islam | 🚢 Launch (MV Green Line VIP Cabin) | Dhaka → Barishal | ৳2,400 |
+| Rahim Chowdhury | 🚂 Train (Silk City Shovon Chair) | Dhaka → Rajshahi | ৳420 |
+| Rahim Chowdhury | ✈️ Flight (Biman BG-433 Economy) | Dhaka → Cox's Bazar | ৳4,200 |
+| Nusrat Jahan | 🚌 Bus (Shohag Luxury Sleeper) | Dhaka → Khulna | ৳1,750 |
+
+### ⚡ Quick Login (Developer Shortcuts)
+
+The login page shows a **Developer Mode** panel at the bottom with:
+- **⚡ Login** — 1-click instant login (skips OTP entirely)
+- **Fill** — auto-fills email & password into the form
+
+### 🛠️ Developer API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/dev/demo-accounts` | GET | Returns all demo credentials & metadata |
+| `/api/dev/quick-login` | POST | Instant JWT login by email (no OTP) |
+| `/api/dev/reset-demo` | POST | Re-seeds all demo users & tickets |
+| `/api/dev/purge-demo` | POST | Cleanly removes all demo data for production |
+
+---
+
 ### Environment variables (all optional — see `.env.example`)
 
 | Variable | Purpose |
