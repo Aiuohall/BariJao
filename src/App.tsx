@@ -1084,20 +1084,38 @@ const OtpForm = ({
     >
       {notice && !notice.emailSent && (
         <div className="bg-amber-50 text-amber-800 p-3 rounded-xl text-sm border border-amber-200">
-          <p className="font-bold mb-1">We couldn't deliver the email.</p>
-          <p>{notice.emailError}</p>
-          <p className="mt-2">
-            Your code was still created and is valid for 5 minutes — it is also printed in
-            the server log.
-          </p>
-          {notice.devOtp && (
-            <p className="mt-2">
-              Development mode — your code is{' '}
-              <span className="font-bold tracking-widest text-base">{notice.devOtp}</span>
-            </p>
-          )}
+          <p className="font-bold mb-1">Email Delivery Notice</p>
+          <p>{notice.emailError || 'Email is currently running in local development mode.'}</p>
         </div>
       )}
+
+      {/* Developer Mode Demo OTP Generator Card */}
+      <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl shadow-xs">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Demo OTP Generator (Client Preview)
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-mono font-black text-xs tracking-widest shadow-xs">
+            {notice?.devOtp || '123456'}
+          </span>
+        </div>
+        <p className="text-[11px] text-emerald-800/80 mb-2.5">
+          Temporary developer mode active. Click below to auto-fill the demo code:
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            const code = notice?.devOtp || '123456';
+            setOtp(code);
+            onVerify(code);
+          }}
+          className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer hover:scale-[1.01]"
+        >
+          <span>Auto-Fill Demo OTP & Verify</span>
+          <span className="bg-emerald-700/80 px-1.5 py-0.5 rounded font-mono text-[10px]">({notice?.devOtp || '123456'})</span>
+        </button>
+      </div>
       <div>
         <label className="block text-sm font-bold text-gray-700 mb-1">One-Time Password (OTP)</label>
         <input
@@ -1144,6 +1162,14 @@ const OtpForm = ({
   );
 };
 
+const DEMO_USERS_LIST = [
+  { name: 'Tanvir Ahmed', email: 'tanvir.demo@barijao.com', role: 'Frequent Seller (Bus & Train)', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Sadia Islam', email: 'sadia.demo@barijao.com', role: 'Top Seller (Sylhet & Launch)', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Rahim Chowdhury', email: 'rahim.demo@barijao.com', role: 'Corporate (Train & Flight)', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Nusrat Jahan', email: 'nusrat.demo@barijao.com', role: 'Luxury Coach Reseller', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Arif Hasan', email: 'arif.demo@barijao.com', role: 'Commuter / Buyer', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
+];
+
 const Login = () => {
   const { user, login } = useAuth();
   const [email, setEmail] = useState('');
@@ -1153,9 +1179,39 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showDemoAccounts, setShowDemoAccounts] = useState(true);
   const navigate = useNavigate();
 
   if (user) return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />;
+
+  const handleQuickDemoLogin = async (demoEmail: string) => {
+    setError('');
+    setLoading(true);
+    try {
+      const data = await apiService.quickDemoLogin(demoEmail);
+      login(data.token, data.user);
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
+    } catch (err: any) {
+      setEmail(demoEmail);
+      setPassword('demopassword123');
+      try {
+        const data = await apiService.login(demoEmail, 'demopassword123');
+        if (data.requiresOTP) {
+          setNotice({ emailSent: false, devOtp: data.devOtp || '123456' });
+          setShowOTP(true);
+        }
+      } catch (e: any) {
+        setError(e.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectDemoUser = (demoEmail: string) => {
+    setEmail(demoEmail);
+    setPassword('demopassword123');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1271,9 +1327,71 @@ const Login = () => {
         )}
         
         {!showOTP && (
-          <p className="text-center mt-8 text-sm text-gray-500">
-            Don't have an account? <Link to="/register" className="text-emerald-600 font-bold">Register here</Link>
-          </p>
+          <>
+            {/* Developer Mode Quick Demo Accounts */}
+            <div className="mt-6 pt-5 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
+                  Developer Mode: Demo Accounts
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+                  className="text-[11px] font-bold text-purple-600 hover:text-purple-800"
+                >
+                  {showDemoAccounts ? 'Hide' : 'Show Demo (5)'}
+                </button>
+              </div>
+
+              {showDemoAccounts && (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  <p className="text-[11px] text-gray-500 mb-2">
+                    Client preview mode: Click any account for 1-click instant login or credential autofill.
+                  </p>
+                  {DEMO_USERS_LIST.map((u) => (
+                    <div
+                      key={u.email}
+                      className="p-2.5 rounded-xl border border-purple-100 bg-purple-50/50 hover:bg-purple-100/60 transition-all flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <img
+                          src={u.avatar}
+                          alt={u.name}
+                          className="w-7 h-7 rounded-full object-cover shrink-0 border border-purple-200"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-gray-900 truncate">{u.name}</div>
+                          <div className="text-[10px] text-purple-700 font-medium truncate">{u.role}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectDemoUser(u.email)}
+                          className="px-2 py-1 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-[10px] font-bold text-gray-700 transition-colors cursor-pointer"
+                        >
+                          Fill
+                        </button>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleQuickDemoLogin(u.email)}
+                          className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-extrabold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          ⚡ Login
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="text-center mt-6 text-sm text-gray-500">
+              Don't have an account? <Link to="/register" className="text-emerald-600 font-bold">Register here</Link>
+            </p>
+          </>
         )}
       </div>
     </div>
