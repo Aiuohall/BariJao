@@ -410,9 +410,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {gatewaySubStep === 'number' && (
                 <div className="space-y-4 max-w-sm mx-auto">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      {lang === 'en' ? `Enter your ${paymentMethod.toUpperCase()} Account Number:` : `আপনার ${paymentMethod.toUpperCase()} অ্যাকাউন্ট নম্বর দিন:`}
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-gray-700">
+                        {lang === 'en' ? `Enter your ${paymentMethod.toUpperCase()} Account Number:` : `আপনার ${paymentMethod.toUpperCase()} অ্যাকাউন্ট নম্বর দিন:`}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setBkashNumber('01711000001')}
+                        className="text-[10px] font-bold text-pink-600 hover:text-pink-800 transition-colors cursor-pointer"
+                      >
+                        ⚡ Demo: 01711000001
+                      </button>
+                    </div>
                     <input
                       type="tel"
                       value={bkashNumber}
@@ -423,7 +432,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setGatewaySubStep('otp')}
-                    className="w-full py-3 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs uppercase tracking-wider cursor-pointer transition-colors"
+                    className="w-full py-3 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs uppercase tracking-wider cursor-pointer transition-colors shadow-xs"
                   >
                     {lang === 'en' ? 'Send Verification OTP' : 'ওটিপি কোড পাঠান'}
                   </button>
@@ -444,16 +453,40 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       onChange={(e) => setBkashOtp(e.target.value)}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-center text-base font-extrabold tracking-widest text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-pink-500"
                     />
-                    <p className="text-[11px] text-gray-400 text-center mt-1">
-                      Demo OTP code: <span className="font-bold text-emerald-600">123456</span>
-                    </p>
+
+                    {/* Demo Transaction OTP Box */}
+                    <div className="mt-3 p-3 bg-pink-50/80 border border-pink-200 rounded-xl text-left shadow-xs">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-extrabold text-pink-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse"></span>
+                          Demo Transaction OTP Generator
+                        </span>
+                        <span className="font-mono text-xs font-black text-pink-900 bg-pink-200/80 px-2 py-0.5 rounded shadow-xs">
+                          123456
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-pink-800/80 mb-2">
+                        Developer mode active: Click below to auto-fill the transaction code:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBkashOtp('123456');
+                          setGatewaySubStep('pin');
+                        }}
+                        className="w-full py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs hover:scale-[1.01]"
+                      >
+                        <span>⚡ Auto-Fill Demo OTP & Continue</span>
+                        <span className="bg-pink-700/80 px-1.5 py-0.5 rounded font-mono text-[10px]">(123456)</span>
+                      </button>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setGatewaySubStep('pin')}
-                    className="w-full py-3 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs uppercase tracking-wider cursor-pointer transition-colors"
+                    className="w-full py-3 rounded-xl bg-gray-900 hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider cursor-pointer transition-colors"
                   >
-                    {lang === 'en' ? 'Verify Code' : 'যাচাই করুন'}
+                    {lang === 'en' ? 'Verify Code Manually' : 'ম্যানুয়ালি যাচাই করুন'}
                   </button>
                 </div>
               )}
@@ -472,11 +505,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       onChange={(e) => setBkashPin(e.target.value)}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-center text-lg font-extrabold tracking-widest text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-pink-500"
                     />
+
+                    {/* Demo PIN Generator */}
+                    <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-left shadow-xs">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          Demo Security PIN Generator
+                        </span>
+                        <span className="font-mono text-xs font-black text-emerald-900 bg-emerald-200/80 px-2 py-0.5 rounded shadow-xs">
+                          12345
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800/80 mb-2">
+                        Simulated bKash/Nagad security PIN for client demonstration:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBkashPin('12345');
+                          handleExecutePayment();
+                        }}
+                        className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs hover:scale-[1.01]"
+                      >
+                        <span>⚡ Auto-Fill PIN (12345) & Confirm Payment</span>
+                      </button>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleExecutePayment}
-                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-md shadow-emerald-600/20"
+                    className="w-full py-3 rounded-xl bg-gray-900 hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-md"
                   >
                     <ShieldCheck className="w-4 h-4" />
                     <span>{lang === 'en' ? `Confirm & Pay ৳${netPayable}` : `নিশ্চিত করুন ও ৳${netPayable} পরিশোধ করুন`}</span>

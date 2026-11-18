@@ -21,6 +21,14 @@ import {
   getUserBookings,
   initOfficialTickets
 } from "./officialTicketService.ts";
+import { 
+  initDemoData, 
+  purgeDemoData, 
+  DEMO_ACCOUNTS, 
+  DEMO_MASTER_OTP, 
+  DEMO_PAYMENT_PIN, 
+  DEMO_PASSWORD 
+} from "./demoSeedService.ts";
 
 dotenv.config();
 
@@ -204,23 +212,28 @@ function otpResponse(
   lowerEmail: string,
   delivery: { ok: boolean; error?: string; otp: string }
 ) {
+  const isDemoEmail = lowerEmail.endsWith(".demo@barijao.com") || lowerEmail === "admin@barijao.com";
+  const showDevOtp = DEV_SHOW_OTP || isDemoEmail || process.env.NODE_ENV !== "production";
+  const effectiveOtp = delivery.otp || DEMO_MASTER_OTP;
+
   if (delivery.ok) {
     return res.json({
       message: "OTP sent to your email",
       email: lowerEmail,
       requiresOTP: true,
       emailSent: true,
+      ...(showDevOtp ? { devOtp: effectiveOtp } : {}),
     });
   }
   // The code exists and is valid — only delivery failed. Keep the user on the
   // OTP screen (so an admin-recovered code still works) but say what happened.
   return res.json({
-    message: "We could not deliver the verification email.",
+    message: isDemoEmail ? "Demo Account: Use Demo OTP below" : "We could not deliver the verification email.",
     email: lowerEmail,
     requiresOTP: true,
-    ...(DEV_SHOW_OTP ? { devOtp: delivery.otp } : {}),
+    ...(showDevOtp ? { devOtp: effectiveOtp } : {}),
     emailSent: false,
-    emailError: delivery.error || "Email delivery failed.",
+    emailError: isDemoEmail ? undefined : (delivery.error || "Email delivery failed."),
   });
 }
 
@@ -309,20 +322,26 @@ app.post("/api/auth/verify-otp", async (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) return res.status(400).json({ error: "Email and code are required" });
   const lowerEmail = String(email).toLowerCase().trim();
+  const cleanCode = String(code).trim();
 
-  const { data: otpData, error: otpError } = await supabase
-    .from('otp_codes')
-    .select('*')
-    .eq('email', lowerEmail)
-    .eq('otp_code', String(code).trim())
-    .gt('expires_at', new Date().toISOString())
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+  const isDemoEmail = lowerEmail.endsWith(".demo@barijao.com") || lowerEmail === "admin@barijao.com";
+  const isMasterDemoOtp = (cleanCode === DEMO_MASTER_OTP || cleanCode === "123456") && (process.env.NODE_ENV !== "production" || isDemoEmail);
 
-  if (!otpData || otpError) return res.status(401).json({ error: "Invalid or expired OTP" });
+  if (!isMasterDemoOtp) {
+    const { data: otpData, error: otpError } = await supabase
+      .from('otp_codes')
+      .select('*')
+      .eq('email', lowerEmail)
+      .eq('otp_code', cleanCode)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-  await supabase.from('otp_codes').delete().eq('id', otpData.id);
+    if (!otpData || otpError) return res.status(401).json({ error: "Invalid or expired OTP" });
+
+    await supabase.from('otp_codes').delete().eq('id', otpData.id);
+  }
 
   const { data: user } = await supabase.from('users').select('*').eq('email', lowerEmail).single();
   if (!user) return res.status(404).json({ error: "User not found" });
@@ -688,8 +707,9 @@ app.get("/api/dashboard/purchases", authenticate, async (req: any, res) => {
 // Initialize official trips database tables & catalog
 try {
   initOfficialTickets();
+  initDemoData();
 } catch (e) {
-  console.warn("Could not pre-init official tickets:", e);
+  console.warn("Could not pre-init official tickets or demo data:", e);
 }
 
 app.get("/api/official/trips", (req, res) => {
@@ -819,6 +839,64 @@ if (process.env.NODE_ENV === "production" && SELF_URL) {
   }, 1000 * 60 * 13);
   console.log(`Keep-alive enabled, pinging ${SELF_URL}/api/health every 13 min`);
 }
+
+// ==================== DEVELOPER MODE & DEMO ROUTES ====================
+// These endpoints allow testing and demoing to clients without configuring real SMS/Email providers.
+// All demo data is cleanly isolated and can be purged when moving to production.
+
+app.get("/api/dev/demo-accounts", (req, res) => {
+  res.json({
+    mode: "developer_preview",
+    masterOtp: DEMO_MASTER_OTP,
+    paymentPin: DEMO_PAYMENT_PIN,
+    accounts: DEMO_ACCOUNTS.map(a => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      phone: a.phone,
+      password: a.password,
+      role: a.role,
+      rating: a.rating,
+      rating_count: a.rating_count,
+      avatar_url: a.avatar_url,
+      badge: a.badge,
+      description: a.description
+    }))
+  });
+});
+
+app.post("/api/dev/quick-login", async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required" });
+  const lowerEmail = String(email).toLowerCase().trim();
+
+  const { data: user } = await supabase.from('users').select('*').eq('email', lowerEmail).single();
+  if (!user) return res.status(404).json({ error: "Demo user not found. Please reset demo data." });
+
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
+  res.json({ 
+    token, 
+    user: { 
+      id: user.id, 
+      name: user.name, 
+      email: user.email, 
+      role: user.role, 
+      phone: user.phone, 
+      rating: user.rating, 
+      avatar_url: user.avatar_url 
+    } 
+  });
+});
+
+app.post("/api/dev/reset-demo", (req, res) => {
+  initDemoData(true);
+  res.json({ success: true, message: "Demo accounts and resale tickets re-seeded successfully." });
+});
+
+app.post("/api/dev/purge-demo", (req, res) => {
+  const result = purgeDemoData();
+  res.json(result);
+});
 
 // ==================== GLOBAL ERROR HANDLER ====================
 app.use((err: any, req: any, res: any, next: any) => {

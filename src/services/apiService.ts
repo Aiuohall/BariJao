@@ -313,5 +313,40 @@ export const apiService = {
     const data = await res.json();
     if (!res.ok) return [];
     return data;
+  },
+
+  // Developer Mode & Demo Helpers
+  async getDemoAccounts() {
+    const res = await fetch(`${API_BASE}/dev/demo-accounts`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch demo accounts');
+    return data;
+  },
+
+  async quickDemoLogin(email: string) {
+    const res = await fetch(`${API_BASE}/dev/quick-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Quick demo login failed');
+    return data;
+  },
+
+  async resetDemoData() {
+    const res = await fetch(`${API_BASE}/dev/reset-demo`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    return await res.json();
+  },
+
+  async purgeDemoData() {
+    const res = await fetch(`${API_BASE}/dev/purge-demo`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    return await res.json();
   }
 };
