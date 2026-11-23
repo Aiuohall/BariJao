@@ -51,14 +51,21 @@ export interface Transaction {
 
 export interface Message {
   id: string;
-  ticket_id: string;
+  ticket_id?: string | null;
   sender_id: string;
   receiver_id: string;
   message: string;
   created_at: string;
-  sender?: { name: string };
-  receiver?: { name: string };
-  ticket?: { transport_type: string, operator_name: string };
+  sender?: { name: string; avatar_url?: string | null; rating?: number };
+  receiver?: { name: string; avatar_url?: string | null; rating?: number };
+  ticket?: {
+    id?: string;
+    transport_type?: string;
+    operator_name?: string;
+    from_location?: string;
+    to_location?: string;
+    asking_price?: number;
+  } | null;
 }
 
 export interface Rating {

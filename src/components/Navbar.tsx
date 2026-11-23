@@ -181,6 +181,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPnrLookup }) => {
               <span>{lang === 'en' ? 'My E-Ticket' : 'আমার টিকিট'}</span>
             </button>
 
+            {/* Direct Messages Shortcut Button */}
+            {user && (
+              <Link
+                to="/messages"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  isCurrent('/messages')
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : 'text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 shadow-2xs'
+                }`}
+                title={lang === 'en' ? 'Messages & Chat' : 'মেসেজ ও চ্যাট'}
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                <span className="hidden sm:inline">{lang === 'en' ? 'Messages' : 'চ্যাট'}</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              </Link>
+            )}
+
             {/* User Dropdown / Login */}
             {user ? (
               <div className="relative">
@@ -362,6 +379,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPnrLookup }) => {
               <Search className="w-4 h-4 text-gray-600" />
               {t.checkPnr || 'Check Ticket / PNR'}
             </button>
+
+            {user && (
+              <Link
+                to="/messages"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs"
+              >
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  {t.messages || 'Messages & Chats'}
+                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              </Link>
+            )}
           </div>
         )}
       </div>

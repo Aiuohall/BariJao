@@ -19,6 +19,7 @@ import { OperatorPartnersSection } from './components/OperatorPartnersSection';
 import { WhyBariJaoSection } from './components/WhyBariJaoSection';
 import { PnrLookupModal } from './components/PnrLookupModal';
 import { TicketVoucherModal } from './components/TicketVoucherModal';
+import { ChatBox } from './components/ChatBox';
 import { OfficialTrip, OfficialBooking } from './types';
 
 function cn(...inputs: ClassValue[]) {
@@ -747,7 +748,7 @@ const TicketDetails = () => {
         </div>
 
         {/* Seller Info */}
-        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Avatar src={ticket.seller?.avatar_url} name={ticket.seller?.name} size={64} />
             <div>
@@ -761,67 +762,59 @@ const TicketDetails = () => {
               )}
             </div>
           </div>
-          <button className="text-red-500 text-sm font-bold hover:underline flex items-center gap-1">
-            <Shield className="w-4 h-4" /> Report Seller
-          </button>
+          <div className="flex items-center gap-3">
+            {user && user.id !== ticket.seller_id && (
+              <Link
+                to={`/messages?user=${ticket.seller_id}&ticket=${ticket.id}`}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Send Message</span>
+              </Link>
+            )}
+            <button className="text-red-500 text-sm font-bold hover:underline flex items-center gap-1">
+              <Shield className="w-4 h-4" /> Report Seller
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Chat Section */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col h-[600px] lg:h-auto">
-        <div className="p-6 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-emerald-600" /> 
-            {isSeller ? 'Chat with Buyer' : 'Negotiate with Seller'}
-          </h3>
-        </div>
-
+      <div className="min-h-[550px] lg:h-auto flex flex-col">
         {!user ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <p className="text-gray-500 mb-4">You must be logged in to chat with the seller.</p>
-            <Link to="/login" className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold">Login to Chat</Link>
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <MessageSquare className="w-12 h-12 text-gray-300 mb-3" />
+            <h4 className="font-bold text-gray-800 text-base mb-1">Chat with Seller</h4>
+            <p className="text-gray-500 mb-4 text-xs font-medium">You must be logged in to chat with the seller.</p>
+            <Link to="/login" className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700 transition-colors">Login to Chat</Link>
           </div>
-        ) : !counterpartyId ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <MessageSquare className="w-10 h-10 text-gray-200 mb-3" />
-            <p className="text-gray-500">This is your own listing. Open a buyer's message from the <Link to="/messages" className="text-emerald-600 font-bold">Messages</Link> page to reply.</p>
+        ) : isSeller && !counterpartyId ? (
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <MessageSquare className="w-12 h-12 text-emerald-600/40 mb-3" />
+            <h4 className="font-bold text-gray-800 text-base mb-1">Your Listing's Chat Box</h4>
+            <p className="text-gray-500 text-xs mb-4 max-w-xs">This is your own listing. Open buyer threads from your Messages page to reply.</p>
+            <Link to="/messages" className="bg-emerald-600 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors">Open Messages</Link>
           </div>
         ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.length === 0 && (
-                <p className="text-center text-gray-400 text-sm py-10">No messages yet. Start the negotiation!</p>
-              )}
-              {messages.map((msg: any) => (
-                <div key={msg.id} className={cn(
-                  "flex flex-col max-w-[80%]",
-                  msg.sender_id === user.id ? "ml-auto items-end" : "mr-auto items-start"
-                )}>
-                  <div className={cn(
-                    "px-4 py-2 rounded-2xl text-sm",
-                    msg.sender_id === user.id ? "bg-emerald-600 text-white rounded-tr-none" : "bg-gray-100 text-gray-800 rounded-tl-none"
-                  )}>
-                    {msg.message}
-                  </div>
-                  <span className="text-[10px] text-gray-400 mt-1">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              ))}
-            </div>
-
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-100 flex gap-2">
-              <input 
-                type="text" 
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type your message..."
-                maxLength={500}
-                className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-              <button className="bg-emerald-600 text-white p-2 rounded-xl hover:bg-emerald-700 transition-colors">
-                <PlusCircle className="w-5 h-5 rotate-45" />
-              </button>
-            </form>
-          </>
+          <ChatBox
+            recipientUser={{
+              id: counterpartyId || ticket.seller_id,
+              name: isSeller ? 'Buyer' : (ticket.seller?.name || 'Seller'),
+              avatar_url: isSeller ? null : ticket.seller?.avatar_url,
+              rating: ticket.seller?.rating,
+              phone: ticket.seller?.phone
+            }}
+            ticketContext={{
+              id: ticket.id,
+              operator_name: ticket.operator_name,
+              transport_type: ticket.transport_type,
+              from_location: ticket.from_location,
+              to_location: ticket.to_location,
+              asking_price: ticket.asking_price
+            }}
+            className="h-[550px]"
+            isEmbedded={true}
+          />
         )}
       </div>
     </div>
@@ -2052,84 +2045,398 @@ const Contact = () => {
 
 const Messages = () => {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { lang, t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const urlUserId = searchParams.get('user') || searchParams.get('with');
+  const urlTicketId = searchParams.get('ticket');
+
+  const [activeTab, setActiveTab] = useState<'chats' | 'users'>('chats');
   const [conversations, setConversations] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [ticketContext, setTicketContext] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+
+  // Fetch conversations and users
+  const loadData = async () => {
+    if (!user) return;
+    try {
+      const [convData, usersData] = await Promise.all([
+        apiService.getConversations().catch(() => []),
+        apiService.getUsers().catch(() => [])
+      ]);
+
+      const me = user.id;
+      // Group conversations by counterparty
+      const map = new Map<string, any>();
+      (convData || []).forEach((m: any) => {
+        const otherId = m.sender_id === me ? m.receiver_id : m.sender_id;
+        const otherUser = m.sender_id === me ? m.receiver : m.sender;
+        if (!otherId) return;
+
+        if (!map.has(otherId)) {
+          map.set(otherId, {
+            otherId,
+            otherName: otherUser?.name || 'Member',
+            otherAvatar: otherUser?.avatar_url,
+            otherRating: otherUser?.rating,
+            ticket: m.ticket,
+            lastMessage: m.message,
+            lastAt: m.created_at,
+          });
+        }
+      });
+
+      const convList = Array.from(map.values());
+      setConversations(convList);
+      setAllUsers(usersData || []);
+
+      // If URL has user param, select that user
+      if (urlUserId) {
+        const matched = (usersData || []).find((u: any) => u.id === urlUserId);
+        if (matched) {
+          setSelectedUser(matched);
+        } else {
+          try {
+            const fetched = await apiService.getUserById(urlUserId);
+            setSelectedUser(fetched);
+          } catch (e) {
+            console.error('Could not load user from url:', e);
+          }
+        }
+
+        if (urlTicketId) {
+          try {
+            const ticket = await apiService.getTicketById(urlTicketId);
+            setTicketContext(ticket);
+          } catch (e) {
+            console.error('Could not load ticket from url:', e);
+          }
+        }
+      } else if (convList.length > 0 && !selectedUser) {
+        // Auto-select first conversation on wide screens
+        const first = convList[0];
+        const matchedUser = (usersData || []).find((u: any) => u.id === first.otherId);
+        setSelectedUser(matchedUser || {
+          id: first.otherId,
+          name: first.otherName,
+          avatar_url: first.otherAvatar,
+          rating: first.otherRating
+        });
+        if (first.ticket) {
+          setTicketContext(first.ticket);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        const data = await apiService.getConversations();
-        const me = user?.id;
-        // Group the flat message list into one thread per (ticket + other person),
-        // keeping the latest message. Backend returns newest-first.
-        const map = new Map<string, any>();
-        (data || []).forEach((m: any) => {
-          const otherId = m.sender_id === me ? m.receiver_id : m.sender_id;
-          const otherUser = m.sender_id === me ? m.receiver : m.sender;
-          const key = `${m.ticket_id}__${otherId}`;
-          if (!map.has(key)) {
-            map.set(key, {
-              key,
-              ticketId: m.ticket_id,
-              otherId,
-              otherName: otherUser?.name || 'User',
-              otherAvatar: otherUser?.avatar_url,
-              ticket: m.ticket,
-              lastMessage: m.message,
-              lastAt: m.created_at,
-            });
-          }
-        });
-        setConversations(Array.from(map.values()));
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (user) fetchConversations();
-  }, [user]);
+    loadData();
+  }, [user, urlUserId, urlTicketId]);
 
-  if (loading) return <div className="p-20 text-center">Loading...</div>;
+  const selectUserForChat = (targetUser: any, ticket?: any) => {
+    setSelectedUser(targetUser);
+    setTicketContext(ticket || null);
+    setSearchParams(ticket?.id ? { user: targetUser.id, ticket: ticket.id } : { user: targetUser.id });
+  };
+
+  const filteredConversations = conversations.filter(c => 
+    !searchQuery.trim() || 
+    c.otherName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredUsers = allUsers.filter(u =>
+    !searchQuery.trim() ||
+    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (loading && !selectedUser && conversations.length === 0) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-16 text-center">
+        <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p className="text-sm font-semibold text-gray-500">Loading messages & members...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
-        <MessageSquare className="w-8 h-8 text-emerald-600" /> {t.messages}
-      </h1>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Title & Stats */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 flex items-center gap-2.5">
+            <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <span>{lang === 'en' ? 'Direct Messages & Chat' : 'সরাসরি মেসেজ ও চ্যাট'}</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            {lang === 'en'
+              ? 'Real-time 1-on-1 private messaging with any BariJao member to negotiate or exchange tickets.'
+              : 'টিকিট বিনিময় বা আলোচনার জন্য যেকোনো বাড়িযাও সদস্যের সাথে রিয়েল-টাইম প্রাইভেট চ্যাট।'}
+          </p>
+        </div>
 
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        {conversations.length === 0 ? (
-          <div className="p-20 text-center text-gray-400">
-            <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <p>No messages yet.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {conversations.map((conv: any) => (
+        <button
+          onClick={() => setActiveTab(activeTab === 'users' ? 'chats' : 'users')}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all cursor-pointer w-fit"
+        >
+          {activeTab === 'users' ? (
+            <>
+              <MessageSquare className="w-4 h-4" />
+              <span>{lang === 'en' ? 'View Active Chats' : 'চলমান চ্যাট দেখুন'}</span>
+            </>
+          ) : (
+            <>
+              <PlusCircle className="w-4 h-4" />
+              <span>{lang === 'en' ? '+ Start New Chat with Member' : '+ নতুন সদস্যের সাথে চ্যাট'}</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Main Two-Pane Chat Container */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px] max-h-[760px]">
+        {/* Left Sidebar (Conversations / User Directory) */}
+        <div className={`lg:col-span-4 border-r border-gray-100 flex flex-col bg-slate-50/50 ${selectedUser ? 'hidden lg:flex' : 'flex'}`}>
+          {/* Tabs: Active Chats vs All Members */}
+          <div className="p-3 border-b border-gray-100 bg-white">
+            <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-2xl gap-1">
               <button
-                key={conv.key}
-                onClick={() => navigate(`/ticket/${conv.ticketId}?with=${conv.otherId}`)}
-                className="w-full p-6 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
+                onClick={() => setActiveTab('chats')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'chats'
+                    ? 'bg-white text-emerald-800 shadow-2xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
               >
-                <Avatar src={conv.otherAvatar} name={conv.otherName} size={48} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-bold text-gray-900 truncate">{conv.otherName}</h3>
-                    <span className="text-xs text-gray-400 shrink-0">{new Date(conv.lastAt).toLocaleDateString()}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 truncate">{conv.lastMessage}</p>
-                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-wider truncate">
-                    {conv.ticket?.operator_name} · {conv.ticket?.from_location} → {conv.ticket?.to_location}
-                  </p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>{lang === 'en' ? 'Chats' : 'চলমান চ্যাট'}</span>
+                {conversations.length > 0 && (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.2 rounded-full">
+                    {conversations.length}
+                  </span>
+                )}
               </button>
-            ))}
+
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'users'
+                    ? 'bg-white text-emerald-800 shadow-2xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>{lang === 'en' ? 'All Members' : 'সকল সদস্য'}</span>
+                {allUsers.length > 0 && (
+                  <span className="text-[10px] bg-gray-200 text-gray-700 font-bold px-1.5 py-0.2 rounded-full">
+                    {allUsers.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div className="mt-3 relative">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={activeTab === 'chats' 
+                  ? (lang === 'en' ? 'Search conversations...' : 'চ্যাট খুঁজুন...')
+                  : (lang === 'en' ? 'Search members by name...' : 'নাম দিয়ে সদস্য খুঁজুন...')
+                }
+                className="w-full bg-gray-50 border border-gray-200 pl-9 pr-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
-        )}
+
+          {/* List Content */}
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-100/70">
+            {activeTab === 'chats' ? (
+              filteredConversations.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 space-y-3">
+                  <MessageSquare className="w-10 h-10 mx-auto text-gray-300" />
+                  <p className="text-xs font-medium">
+                    {searchQuery ? 'No matching conversations' : 'No active chats yet.'}
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('users')}
+                    className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                  >
+                    Browse members to start a chat →
+                  </button>
+                </div>
+              ) : (
+                filteredConversations.map((conv) => {
+                  const isSelected = selectedUser?.id === conv.otherId;
+                  return (
+                    <button
+                      key={conv.otherId}
+                      onClick={() => selectUserForChat({
+                        id: conv.otherId,
+                        name: conv.otherName,
+                        avatar_url: conv.otherAvatar,
+                        rating: conv.otherRating
+                      }, conv.ticket)}
+                      className={`w-full p-4 flex items-center gap-3 text-left transition-colors cursor-pointer ${
+                        isSelected ? 'bg-emerald-50/80 border-l-4 border-emerald-600' : 'hover:bg-gray-100/60'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <Avatar src={conv.otherAvatar} name={conv.otherName} size={42} />
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></span>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline gap-2">
+                          <h4 className="text-xs font-bold text-gray-900 truncate">{conv.otherName}</h4>
+                          <span className="text-[10px] text-gray-400 shrink-0">
+                            {new Date(conv.lastAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{conv.lastMessage}</p>
+                        {conv.ticket && (
+                          <span className="inline-block text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded font-semibold truncate mt-1">
+                            {conv.ticket.operator_name || 'Ticket'} · {conv.ticket.from_location} → {conv.ticket.to_location}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )
+            ) : (
+              // All Users Directory
+              filteredUsers.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 space-y-2">
+                  <User className="w-10 h-10 mx-auto text-gray-300" />
+                  <p className="text-xs">No members found.</p>
+                </div>
+              ) : (
+                filteredUsers.map((u) => {
+                  const isSelected = selectedUser?.id === u.id;
+                  return (
+                    <div
+                      key={u.id}
+                      className={`p-3.5 flex items-center justify-between gap-3 transition-colors ${
+                        isSelected ? 'bg-emerald-50/80 border-l-4 border-emerald-600' : 'hover:bg-gray-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar src={u.avatar_url} name={u.name} size={40} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-bold text-gray-900 truncate">{u.name}</h4>
+                            <span className="text-[10px] font-bold text-amber-500 flex items-center gap-0.5">
+                              <Star className="w-2.5 h-2.5 fill-current" />
+                              {u.rating ? Number(u.rating).toFixed(1) : '5.0'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 truncate">
+                            {u.role === 'admin' ? '🛡️ Admin' : (u.badge || u.email || 'Member')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => selectUserForChat(u)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-2xs transition-all cursor-pointer"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>Chat</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Right Area (Individual Message Box) */}
+        <div className={`lg:col-span-8 flex flex-col h-full bg-white ${!selectedUser ? 'hidden lg:flex' : 'flex'}`}>
+          {selectedUser ? (
+            <div className="flex flex-col h-full">
+              {/* Mobile Back Header */}
+              <div className="p-2.5 bg-gray-50 border-b border-gray-100 lg:hidden flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>← Back to all chats</span>
+                </button>
+                <span className="text-xs font-bold text-gray-800 truncate">
+                  Chatting with {selectedUser.name}
+                </span>
+              </div>
+
+              <div className="flex-1 min-h-0">
+                <ChatBox
+                  recipientUser={selectedUser}
+                  ticketContext={ticketContext}
+                  className="rounded-none border-none shadow-none h-full"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4 my-auto">
+              <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-sm">
+                <MessageSquare className="w-8 h-8" />
+              </div>
+              <div className="max-w-md">
+                <h3 className="text-lg font-extrabold text-gray-900 mb-1">
+                  {lang === 'en' ? 'BariJao Individual User Messaging' : 'বাড়িযাও ব্যবহারকারী মেসেঞ্জার'}
+                </h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {lang === 'en'
+                    ? 'Select a conversation from the sidebar or click any member below to send an instant private message.'
+                    : 'বাম পাশের তালিকা থেকে কথোপকথন বেছে নিন বা যেকোনো সদস্যের সাথে কথা শুরু করতে নিচের কার্ডে ক্লিক করুন।'}
+                </p>
+              </div>
+
+              {/* Quick member shortcuts */}
+              {allUsers.length > 0 && (
+                <div className="w-full max-w-lg pt-4 border-t border-gray-100">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">
+                    {lang === 'en' ? 'Available Members to Message' : 'যাদের মেসেজ পাঠাতে পারেন'}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {allUsers.slice(0, 4).map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => selectUserForChat(u)}
+                        className="p-3 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-gray-200/70 hover:border-emerald-300 text-left flex items-center gap-3 transition-all cursor-pointer group"
+                      >
+                        <Avatar src={u.avatar_url} name={u.name} size={36} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-gray-900 group-hover:text-emerald-800 truncate">{u.name}</p>
+                          <p className="text-[10px] text-gray-500 truncate">{u.badge || u.role || 'Verified User'}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-emerald-600 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

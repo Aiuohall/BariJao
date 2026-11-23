@@ -11,7 +11,8 @@ import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import rateLimit from "express-rate-limit";
-import { db as supabase, dbStatus } from "./database.ts";
+import { db as supabase, dbStatus, getSqlite } from "./database.ts";
+import crypto from "crypto";
 import { sendOtpEmail, emailProvider, emailConfigProblems, logEmailConfig } from "./mailer.ts";
 import { 
   getOfficialTrips, 
@@ -594,15 +595,165 @@ app.post("/api/ratings", authenticate, async (req: any, res) => {
   res.json({ success: true });
 });
 
-// ==================== MESSAGING ====================
-app.get("/api/messages/conversations", authenticate, async (req: any, res) => {
-  const { data: messages, error } = await supabase.from('messages')
-    .select('*, ticket:tickets(transport_type, operator_name, from_location, to_location, seller_id), sender:users!messages_sender_id_fkey(name, avatar_url), receiver:users!messages_receiver_id_fkey(name, avatar_url)')
-    .or(`sender_id.eq.${req.user.id},receiver_id.eq.${req.user.id}`)
-    .order('created_at', { ascending: false });
+// ==================== USER DIRECTORY (for messaging & profiles) ====================
+app.get("/api/users", authenticate, async (req: any, res) => {
+  try {
+    const q = req.query.q as string | undefined;
+    if (!dbStatus.useSupabase) {
+      const sqlite = getSqlite();
+      let sql = `SELECT id, name, email, phone, role, rating, rating_count, avatar_url, is_verified, created_at FROM users WHERE id != ?`;
+      const params: any[] = [req.user.id];
+      if (q && q.trim()) {
+        sql += ` AND (name LIKE ? OR email LIKE ?)`;
+        const searchPattern = `%${q.trim()}%`;
+        params.push(searchPattern, searchPattern);
+      }
+      sql += ` ORDER BY name ASC LIMIT 50`;
+      const users = sqlite.prepare(sql).all(...params);
+      return res.json(users);
+    } else {
+      let query = supabase
+        .from('users')
+        .select('id, name, email, phone, role, rating, rating_count, avatar_url, is_verified, created_at')
+        .neq('id', req.user.id);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(messages);
+      if (q && q.trim()) {
+        query = query.or(`name.ilike.%${q.trim()}%,email.ilike.%${q.trim()}%`);
+      }
+      const { data: users, error } = await query.order('name', { ascending: true }).limit(50);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(users || []);
+    }
+  } catch (err: any) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: err.message || "Failed to fetch users" });
+  }
+});
+
+app.get("/api/users/:id", authenticate, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    if (!dbStatus.useSupabase) {
+      const sqlite = getSqlite();
+      const user = sqlite.prepare(`SELECT id, name, email, phone, role, rating, rating_count, avatar_url, is_verified, created_at FROM users WHERE id = ?`).get(id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      return res.json(user);
+    } else {
+      const { data: user, error } = await supabase.from('users').select('id, name, email, phone, role, rating, rating_count, avatar_url, is_verified, created_at').eq('id', id).single();
+      if (error || !user) return res.status(404).json({ error: "User not found" });
+      return res.json(user);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== MESSAGING & CHAT SYSTEM ====================
+app.get("/api/messages/conversations", authenticate, async (req: any, res) => {
+  try {
+    if (!dbStatus.useSupabase) {
+      const sqlite = getSqlite();
+      const rows = sqlite.prepare(`
+        SELECT 
+          m.id, m.ticket_id, m.sender_id, m.receiver_id, m.message, m.created_at,
+          s.name as sender_name, s.avatar_url as sender_avatar, s.rating as sender_rating,
+          r.name as receiver_name, r.avatar_url as receiver_avatar, r.rating as receiver_rating,
+          t.operator_name as ticket_operator_name, t.transport_type as ticket_transport_type,
+          t.from_location as ticket_from_location, t.to_location as ticket_to_location
+        FROM messages m
+        LEFT JOIN users s ON m.sender_id = s.id
+        LEFT JOIN users r ON m.receiver_id = r.id
+        LEFT JOIN tickets t ON m.ticket_id = t.id
+        WHERE m.sender_id = ? OR m.receiver_id = ?
+        ORDER BY m.created_at DESC
+      `).all(req.user.id, req.user.id);
+
+      const formatted = rows.map((r: any) => ({
+        id: r.id,
+        ticket_id: r.ticket_id,
+        sender_id: r.sender_id,
+        receiver_id: r.receiver_id,
+        message: r.message,
+        created_at: r.created_at,
+        sender: { name: r.sender_name, avatar_url: r.sender_avatar, rating: r.sender_rating },
+        receiver: { name: r.receiver_name, avatar_url: r.receiver_avatar, rating: r.receiver_rating },
+        ticket: r.ticket_id ? {
+          id: r.ticket_id,
+          operator_name: r.ticket_operator_name,
+          transport_type: r.ticket_transport_type,
+          from_location: r.ticket_from_location,
+          to_location: r.ticket_to_location
+        } : null
+      }));
+      return res.json(formatted);
+    } else {
+      const { data: messages, error } = await supabase.from('messages')
+        .select('*, ticket:tickets(transport_type, operator_name, from_location, to_location, seller_id), sender:users!messages_sender_id_fkey(name, avatar_url), receiver:users!messages_receiver_id_fkey(name, avatar_url)')
+        .or(`sender_id.eq.${req.user.id},receiver_id.eq.${req.user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.json(messages || []);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Individual 1-on-1 thread between logged-in user and any user
+app.get("/api/messages/thread/:userId", authenticate, async (req: any, res) => {
+  try {
+    const otherUserId = req.params.userId;
+    const currentUserId = req.user.id;
+
+    if (!dbStatus.useSupabase) {
+      const sqlite = getSqlite();
+      const rows = sqlite.prepare(`
+        SELECT 
+          m.id, m.ticket_id, m.sender_id, m.receiver_id, m.message, m.created_at,
+          s.name as sender_name, s.avatar_url as sender_avatar,
+          r.name as receiver_name, r.avatar_url as receiver_avatar,
+          t.operator_name as ticket_operator_name, t.transport_type as ticket_transport_type,
+          t.from_location as ticket_from_location, t.to_location as ticket_to_location
+        FROM messages m
+        LEFT JOIN users s ON m.sender_id = s.id
+        LEFT JOIN users r ON m.receiver_id = r.id
+        LEFT JOIN tickets t ON m.ticket_id = t.id
+        WHERE (m.sender_id = ? AND m.receiver_id = ?)
+           OR (m.sender_id = ? AND m.receiver_id = ?)
+        ORDER BY m.created_at ASC
+      `).all(currentUserId, otherUserId, otherUserId, currentUserId);
+
+      const formatted = rows.map((r: any) => ({
+        id: r.id,
+        ticket_id: r.ticket_id,
+        sender_id: r.sender_id,
+        receiver_id: r.receiver_id,
+        message: r.message,
+        created_at: r.created_at,
+        sender: { name: r.sender_name, avatar_url: r.sender_avatar },
+        receiver: { name: r.receiver_name, avatar_url: r.receiver_avatar },
+        ticket: r.ticket_id ? {
+          id: r.ticket_id,
+          operator_name: r.ticket_operator_name,
+          transport_type: r.ticket_transport_type,
+          from_location: r.ticket_from_location,
+          to_location: r.ticket_to_location
+        } : null
+      }));
+      return res.json(formatted);
+    } else {
+      const { data: messages, error } = await supabase.from('messages')
+        .select('*, ticket:tickets(transport_type, operator_name, from_location, to_location), sender:users!messages_sender_id_fkey(name, avatar_url), receiver:users!messages_receiver_id_fkey(name, avatar_url)')
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${currentUserId})`)
+        .order('created_at', { ascending: true });
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.json(messages || []);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/messages/:ticketId", authenticate, async (req: any, res) => {
@@ -629,15 +780,58 @@ app.get("/api/messages/:ticketId", authenticate, async (req: any, res) => {
 app.post("/api/messages", authenticate, async (req: any, res) => {
   const { ticket_id, receiver_id, message } = req.body;
 
-  const { error } = await supabase.from('messages').insert([{
-    ticket_id,
-    sender_id: req.user.id,
-    receiver_id,
-    message
-  }]);
+  if (!receiver_id) {
+    return res.status(400).json({ error: "Recipient user is required" });
+  }
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: "Message cannot be empty" });
+  }
+  if (receiver_id === req.user.id) {
+    return res.status(400).json({ error: "You cannot message yourself" });
+  }
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
+  try {
+    if (!dbStatus.useSupabase) {
+      const sqlite = getSqlite();
+      const receiver = sqlite.prepare("SELECT id, name FROM users WHERE id = ?").get(receiver_id);
+      if (!receiver) {
+        return res.status(404).json({ error: "Recipient user not found" });
+      }
+
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      sqlite.prepare(`
+        INSERT INTO messages (id, ticket_id, sender_id, receiver_id, message, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(id, ticket_id || null, req.user.id, receiver_id, message.trim(), now);
+
+      const sender = sqlite.prepare("SELECT name, avatar_url FROM users WHERE id = ?").get(req.user.id);
+      return res.json({
+        success: true,
+        message: {
+          id,
+          ticket_id: ticket_id || null,
+          sender_id: req.user.id,
+          receiver_id,
+          message: message.trim(),
+          created_at: now,
+          sender
+        }
+      });
+    } else {
+      const { data: newMsg, error } = await supabase.from('messages').insert([{
+        ticket_id: ticket_id || null,
+        sender_id: req.user.id,
+        receiver_id,
+        message: message.trim()
+      }]).select().single();
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.json({ success: true, message: newMsg });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ==================== ADMIN ROUTES ====================

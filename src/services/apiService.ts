@@ -182,11 +182,34 @@ export const apiService = {
     return data;
   },
 
+  // Users & Directory
+  async getUsers(q?: string) {
+    const qs = q ? `?q=${encodeURIComponent(q)}` : '';
+    const res = await fetch(`${API_BASE}/users${qs}`, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch users');
+    return data;
+  },
+
+  async getUserById(id: string) {
+    const res = await fetch(`${API_BASE}/users/${id}`, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch user');
+    return data;
+  },
+
   // Messages
   async getConversations() {
     const res = await fetch(`${API_BASE}/messages/conversations`, { headers: getHeaders() });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to fetch messages');
+    return data;
+  },
+
+  async getUserThread(userId: string) {
+    const res = await fetch(`${API_BASE}/messages/thread/${encodeURIComponent(userId)}`, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch user messages');
     return data;
   },
 
@@ -198,7 +221,7 @@ export const apiService = {
     return data;
   },
 
-  async sendMessage(msgData: any) {
+  async sendMessage(msgData: { receiver_id: string; message: string; ticket_id?: string | null }) {
     const res = await fetch(`${API_BASE}/messages`, {
       method: 'POST',
       headers: getHeaders(),

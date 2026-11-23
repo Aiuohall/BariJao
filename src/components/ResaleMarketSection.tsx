@@ -260,9 +260,19 @@ export const ResaleMarketSection: React.FC<ResaleMarketSectionProps> = ({
                       <span className="text-[10px] text-gray-400 font-bold uppercase block">SELLER</span>
                       <span className="font-bold text-gray-800">{ticket.seller?.name || 'Verified Member'}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-amber-500 text-xs font-bold">
-                      <Star className="w-3.5 h-3.5 fill-current" />
-                      <span>{ticket.seller?.rating ? ticket.seller.rating.toFixed(1) : '5.0'}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 text-amber-500 text-xs font-bold">
+                        <Star className="w-3.5 h-3.5 fill-current" />
+                        <span>{ticket.seller?.rating ? ticket.seller.rating.toFixed(1) : '5.0'}</span>
+                      </div>
+                      <Link
+                        to={user ? `/messages?user=${ticket.seller_id}&ticket=${ticket.id}` : '/login'}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center gap-1 transition-colors"
+                        title={lang === 'en' ? 'Send direct message to seller' : 'বিক্রেতাকে সরাসরি মেসেজ পাঠান'}
+                      >
+                        <MessageSquare className="w-3 h-3 text-emerald-600" />
+                        <span>{lang === 'en' ? 'Message' : 'মেসেজ'}</span>
+                      </Link>
                     </div>
                   </div>
                 </div>
