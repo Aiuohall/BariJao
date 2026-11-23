@@ -197,7 +197,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPnrLookup }) => {
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               </Link>
             )}
-
             {/* User Dropdown / Login */}
             {user ? (
               <div className="relative">
@@ -379,7 +378,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPnrLookup }) => {
               <Search className="w-4 h-4 text-gray-600" />
               {t.checkPnr || 'Check Ticket / PNR'}
             </button>
-
             {user && (
               <Link
                 to="/messages"
